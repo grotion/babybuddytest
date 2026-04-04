@@ -1,0 +1,69 @@
+# Coverage testing files.
+.coverage
+/htmlcov
+
+# Environment configuration file.
+.env
+
+# Virtual environment files (pipenv may use this convention).
+.venv
+
+# IDE configuration files.
+/.idea
+
+# Node development dependencies.
+/node_modules
+
+# Python files.
+*.pyc
+
+# App static file directories.
+/*/static
+
+# Django media root directory.
+/media
+
+# Pipfile.lock.
+# Committing this file makes it difficult to support multiple Python versions as
+# requirements can different between versions, but the Pipfile only supports
+# locking to one version.
+Pipfile.lock
+
+# Documentation
+/site
+
+# macOS files
+.DS_Store
+
+# Devenv
+.devenv*
+devenv.local.nix
+
+# direnv
+.direnv
+
+# pre-commit
+.pre-commit-config.yaml
+
+.vscode
+
+# ---- Added for local/dev safety ----
+
+# Python cache
+__pycache__/
+*.pyo
+*.pyd
+
+# Virtual env variants
+venv/
+env/
+
+# macOS archive junk
+__MACOSX/
+
+# Logs
+*.log
+
+# Local database (optional)
+db.sqlite3
+*.sqlite3
