@@ -11,10 +11,10 @@ This guide separates:
 
 ## 1. Check Docker
 
-<pre> ```
+<pre>
 docker --version
 docker compose version
-``` </pre>
+</pre>
 
 ---
 
