@@ -20,59 +20,66 @@ docker compose version
 
 ## 2. Install Python environment (Pipenv)
 
+<pre>
 pipenv install --dev
+</pre>
 
 ---
 
 ## 3. Install Node (NVM)
 
+<pre>
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-
 export NVM_DIR="$HOME/.nvm"
-
 source "$NVM_DIR/nvm.sh"
-
 nvm --version
-
 nvm install 18
-
 nvm use 18
+</pre>
 
 ---
 
 ## 4. Install frontend dependencies
 
+<pre>
 npm install -g gulp-cli
-
 npm install
+</pre>
 
 ---
 
 ## 5. Install testing tools (for STaD)
 
+<pre>
 pipenv install --dev pytest pytest-django pytest-cov mutmut
+</pre>
 
 ---
 
 ## 6. Set Django settings
 
+<pre>
 export DJANGO_SETTINGS_MODULE=babybuddy.settings.development
+</pre>
 
 (Optional: add this to ~/.zshrc so you don’t repeat it)
 
 ---
 
-## 7. Initialize database
+## 7. Initialize database (Could skip)
 
+<pre>
 pipenv run python manage.py migrate
+</pre>
 
 ---
 
 ## 8. Run application (optional check)
 
+<pre>
 gulp migrate
-
 gulp
+</pre>
 
 Open:
 http://127.0.0.1:8000
@@ -86,7 +93,9 @@ admin / admin
 
 ## Run all tests
 
+<pre>
 pipenv run pytest stad_test
+</pre>
 
 ---
 
@@ -94,25 +103,32 @@ pipenv run pytest stad_test
 
 ### Black-box tests
 
+<pre>
 pipenv run pytest stad_test/blackbox
+</pre>
 
 ### White-box tests
 
+<pre>
 pipenv run pytest stad_test/whitebox
+</pre>
 
 ---
 
 ## Run with coverage
 
+<pre>
 pipenv run pytest stad_test --cov=api --cov-branch --cov-report=term-missing
+</pre>
 
 ---
 
 ## Run mutation testing
 
+<pre>
 pipenv run mutmut run
-
 pipenv run mutmut results
+</pre>
 
 ---
 
@@ -120,13 +136,12 @@ pipenv run mutmut results
 
 Only run these again if something breaks:
 
+<pre>
 pipenv install --dev
-
 npm install
-
 nvm install
-
 pipenv run python manage.py migrate
+</pre>
 
 ---
 
@@ -144,13 +159,17 @@ pipenv run pytest stad_test
 
 ## 2. Wrong settings module
 
+<pre>
 export DJANGO_SETTINGS_MODULE=babybuddy.settings.development
+</pre>
 
 ---
 
 ## 3. Database errors
 
+<pre>
 pipenv run python manage.py migrate
+</pre>
 
 ---
 
@@ -164,18 +183,9 @@ Make sure you run commands from the project root (where manage.py is located)
 
 Add this to ~/.zshrc:
 
+<pre>
 alias pt="export DJANGO_SETTINGS_MODULE=babybuddy.settings.development && pipenv run pytest stad_test"
+</pre>
 
 Then just run:
 pt
-
----
-
-# 🧠 SUMMARY
-
-| Task             | Command                       |
-| ---------------- | ----------------------------- |
-| First-time setup | pipenv install --dev          |
-| Run tests        | pipenv run pytest stad_test   |
-| Coverage         | pytest --cov=api --cov-branch |
-| Mutation         | mutmut run                    |
