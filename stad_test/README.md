@@ -12,6 +12,7 @@ This guide separates:
 ## 1. Check Docker
 
 docker --version
+
 docker compose version
 
 ---
@@ -25,11 +26,15 @@ pipenv install --dev
 ## 3. Install Node (NVM)
 
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+
 export NVM_DIR="$HOME/.nvm"
+
 source "$NVM_DIR/nvm.sh"
 
 nvm --version
+
 nvm install 18
+
 nvm use 18
 
 ---
@@ -37,6 +42,7 @@ nvm use 18
 ## 4. Install frontend dependencies
 
 npm install -g gulp-cli
+
 npm install
 
 ---
@@ -64,6 +70,7 @@ pipenv run python manage.py migrate
 ## 8. Run application (optional check)
 
 gulp migrate
+
 gulp
 
 Open:
@@ -103,6 +110,7 @@ pipenv run pytest stad_test --cov=api --cov-branch --cov-report=term-missing
 ## Run mutation testing
 
 pipenv run mutmut run
+
 pipenv run mutmut results
 
 ---
@@ -110,9 +118,13 @@ pipenv run mutmut results
 # ❌ DO NOT RUN EVERY TIME
 
 Only run these again if something breaks:
+
 pipenv install --dev
+
 npm install
+
 nvm install
+
 pipenv run python manage.py migrate
 
 ---
@@ -150,6 +162,7 @@ Make sure you run commands from the project root (where manage.py is located)
 # 🚀 OPTIONAL (QUALITY OF LIFE)
 
 Add this to ~/.zshrc:
+
 alias pt="export DJANGO_SETTINGS_MODULE=babybuddy.settings.development && pipenv run pytest stad_test"
 
 Then just run:
