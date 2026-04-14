@@ -9,16 +9,7 @@ This guide separates:
 
 # ✅ ONE-TIME SETUP
 
-## 1. Check Docker
-
-<pre>
-docker --version
-docker compose version
-</pre>
-
----
-
-## 2. Install Python environment (Pipenv)
+## 1. Install Python environment (Pipenv)
 
 <pre>
 pipenv install --dev
@@ -26,7 +17,7 @@ pipenv install --dev
 
 ---
 
-## 3. Install Node (NVM)
+## 2. Install Node (NVM)
 
 <pre>
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
@@ -39,7 +30,7 @@ nvm use 18
 
 ---
 
-## 4. Install frontend dependencies
+## 3. Install frontend dependencies
 
 <pre>
 npm install -g gulp-cli
@@ -48,7 +39,7 @@ npm install
 
 ---
 
-## 5. Install testing tools (for STaD)
+## 4. Install testing tools (for STaD)
 
 <pre>
 pipenv install --dev pytest pytest-django pytest-cov mutmut
@@ -56,25 +47,17 @@ pipenv install --dev pytest pytest-django pytest-cov mutmut
 
 ---
 
-## 6. Set Django settings
+
+## 5. Set Django settings
 
 <pre>
+cd babybuddytest
 export DJANGO_SETTINGS_MODULE=babybuddy.settings.development
 </pre>
 
-(Optional: add this to ~/.zshrc so you don’t repeat it)
-
 ---
 
-## 7. Initialize database (Could skip)
-
-<pre>
-pipenv run python manage.py migrate
-</pre>
-
----
-
-## 8. Run application (optional check)
+## (Optional) 6. Run application 
 
 <pre>
 gulp migrate
@@ -91,7 +74,13 @@ admin / admin
 
 # 🔁 RUN EVERY TIME (TESTING)
 
-## Run all tests
+## Before running
+<pre>
+cd babybuddytest
+export DJANGO_SETTINGS_MODULE=babybuddy.settings.development
+</pre>
+
+## Run all tests (Will fail due to 'reference' is included)
 
 <pre>
 pipenv run pytest stad_test
@@ -101,16 +90,31 @@ pipenv run pytest stad_test
 
 ## Run specific test groups
 
-### Black-box tests
+### Blackbox + Whitbox tests
 
 <pre>
-pipenv run pytest stad_test/blackbox
+pipenv run pytest stad_test/api
+pipenv run pytest stad_test/babybuddy
+pipenv run pytest stad_test/core
+pipenv run pytest stad_test/dashboard
 </pre>
 
-### White-box tests
+### Blackbox tests
 
 <pre>
-pipenv run pytest stad_test/whitebox
+pipenv run pytest stad_test/api/api_blackbox_test.py
+pipenv run pytest stad_test/babybuddy/babybuddy_blackbox_test.py
+pipenv run pytest stad_test/core/core_blackbox_test.py
+pipenv run pytest stad_test/dashboard/dashboard_blackbox_test.py
+</pre>
+
+### Whitebox tests
+
+<pre>
+pipenv run pytest stad_test/api/api_whitebox_test.py
+pipenv run pytest stad_test/babybuddy/babybuddy_whitebox_test.py
+pipenv run pytest stad_test/core/core_whitebox_test.py
+pipenv run pytest stad_test/dashboard/dashboard_whitebox_test.py
 </pre>
 
 ---
@@ -118,7 +122,10 @@ pipenv run pytest stad_test/whitebox
 ## Run with coverage
 
 <pre>
-pipenv run pytest stad_test --cov=api --cov-branch --cov-report=term-missing
+pipenv run pytest stad_test/api/api_whitebox_test.py --cov=api --cov-branch --cov-report=term-missing
+pipenv run pytest stad_test/babybuddy/babybuddy_whitebox_test.py --cov=babybuddy --cov-branch --cov-report=term-missing
+pipenv run pytest stad_test/core/core_whitebox_test.py --cov=core --cov-branch --cov-report=term-missing
+pipenv run pytest stad_test/dashboard/dashboard_whitebox_test.py --cov=dashboard --cov-branch --cov-report=term-missing
 </pre>
 
 ---
@@ -129,63 +136,3 @@ pipenv run pytest stad_test --cov=api --cov-branch --cov-report=term-missing
 pipenv run mutmut run
 pipenv run mutmut results
 </pre>
-
----
-
-# ❌ DO NOT RUN EVERY TIME
-
-Only run these again if something breaks:
-
-<pre>
-pipenv install --dev
-npm install
-nvm install
-pipenv run python manage.py migrate
-</pre>
-
----
-
-# ⚠️ COMMON ISSUES
-
-## 1. Django not found
-
-Wrong:
-pytest stad_test
-
-Correct:
-pipenv run pytest stad_test
-
----
-
-## 2. Wrong settings module
-
-<pre>
-export DJANGO_SETTINGS_MODULE=babybuddy.settings.development
-</pre>
-
----
-
-## 3. Database errors
-
-<pre>
-pipenv run python manage.py migrate
-</pre>
-
----
-
-## 4. Import errors
-
-Make sure you run commands from the project root (where manage.py is located)
-
----
-
-# 🚀 OPTIONAL (QUALITY OF LIFE)
-
-Add this to ~/.zshrc:
-
-<pre>
-alias pt="export DJANGO_SETTINGS_MODULE=babybuddy.settings.development && pipenv run pytest stad_test"
-</pre>
-
-Then just run:
-pt
