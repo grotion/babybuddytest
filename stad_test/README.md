@@ -122,10 +122,10 @@ pipenv run pytest stad_test/dashboard/dashboard_whitebox_test.py
 ## Run with coverage
 
 <pre>
-pipenv run pytest stad_test/api/api_whitebox_test.py --cov=api --cov-branch --cov-report=term-missing
-pipenv run pytest stad_test/babybuddy/babybuddy_whitebox_test.py --cov=babybuddy --cov-branch --cov-report=term-missing
-pipenv run pytest stad_test/core/core_whitebox_test.py --cov=core --cov-branch --cov-report=term-missing
-pipenv run pytest stad_test/dashboard/dashboard_whitebox_test.py --cov=dashboard --cov-branch --cov-report=term-missing
+pipenv run pytest stad_test/api/api_whitebox_test.py --cov=api --cov-branch --cov-report=html:stad_test/report/api_cov
+pipenv run pytest stad_test/babybuddy/babybuddy_whitebox_test.py --cov=babybuddy --cov-branch --cov-report=html:stad_test/report/babybuddy_cov
+pipenv run pytest stad_test/core/core_whitebox_test.py --cov=core --cov-branch --cov-report=html:stad_test/report/core_cov
+pipenv run pytest stad_test/dashboard/dashboard_whitebox_test.py --cov=dashboard --cov-branch --cov-report=html:stad_test/report/dashboard_cov
 </pre>
 
 ---
