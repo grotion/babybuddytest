@@ -67,3 +67,7 @@ __MACOSX/
 # Local database (optional)
 db.sqlite3
 *.sqlite3
+
+
+# Mutation test
+mutants/
