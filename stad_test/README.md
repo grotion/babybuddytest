@@ -159,6 +159,19 @@ pipenv run pytest stad_test/dashboard/dashboard_whitebox_test.py --cov=dashboard
 ## Run mutation testing
 
 <pre>
+# api
+cp stad_test/api/setup.cfg .
+
+# babybuddy
+cp stad_test/babybuddy/setup.cfg .
+
+# core
+cp stad_test/core/setup.cfg .
+
+# dashboard
+cp stad_test/dashboard/setup.cfg .
+
+# Copy the correct config above then run these
 pipenv run mutmut run
 pipenv run mutmut results
 </pre>
