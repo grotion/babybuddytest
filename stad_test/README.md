@@ -51,7 +51,6 @@ pipenv install --dev pytest pytest-django pytest-cov mutmut
 ## 5. Set Django settings
 
 <pre>
-cd babybuddytest
 export DJANGO_SETTINGS_MODULE=babybuddy.settings.development
 </pre>
 
@@ -76,11 +75,10 @@ admin / admin
 
 ## Before running
 <pre>
-cd babybuddytest
 export DJANGO_SETTINGS_MODULE=babybuddy.settings.development
 </pre>
 
-## Run all tests (Will fail due to 'reference' is included)
+## Run all tests
 
 <pre>
 pipenv run pytest stad_test
@@ -93,27 +91,48 @@ pipenv run pytest stad_test
 ### Blackbox + Whitbox tests
 
 <pre>
+# api
 pipenv run pytest stad_test/api
+
+# babybuddy
 pipenv run pytest stad_test/babybuddy
+
+# core
 pipenv run pytest stad_test/core
+
+# dashboard
 pipenv run pytest stad_test/dashboard
 </pre>
 
 ### Blackbox tests
 
 <pre>
+# api
 pipenv run pytest stad_test/api/api_blackbox_test.py
+
+# babybuddy
 pipenv run pytest stad_test/babybuddy/babybuddy_blackbox_test.py
+
+# core
 pipenv run pytest stad_test/core/core_blackbox_test.py
+
+# dashboard
 pipenv run pytest stad_test/dashboard/dashboard_blackbox_test.py
 </pre>
 
 ### Whitebox tests
 
 <pre>
+# api
 pipenv run pytest stad_test/api/api_whitebox_test.py
+
+# babybuddy
 pipenv run pytest stad_test/babybuddy/babybuddy_whitebox_test.py
+
+# core
 pipenv run pytest stad_test/core/core_whitebox_test.py
+
+# dashboard
 pipenv run pytest stad_test/dashboard/dashboard_whitebox_test.py
 </pre>
 
@@ -122,9 +141,16 @@ pipenv run pytest stad_test/dashboard/dashboard_whitebox_test.py
 ## Run with coverage
 
 <pre>
+# api
 pipenv run pytest stad_test/api/api_whitebox_test.py --cov=api --cov-branch --cov-report=html:stad_test/report/api_cov
+
+# babybuddy
 pipenv run pytest stad_test/babybuddy/babybuddy_whitebox_test.py --cov=babybuddy --cov-branch --cov-report=html:stad_test/report/babybuddy_cov
+
+# core
 pipenv run pytest stad_test/core/core_whitebox_test.py --cov=core --cov-branch --cov-report=html:stad_test/report/core_cov
+
+# dashboard
 pipenv run pytest stad_test/dashboard/dashboard_whitebox_test.py --cov=dashboard --cov-branch --cov-report=html:stad_test/report/dashboard_cov
 </pre>
 
