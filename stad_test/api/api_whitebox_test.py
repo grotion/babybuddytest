@@ -1,3 +1,21 @@
+######################################################################################################################
+# api whitebox test                                                                                                  #
+#                                                                                                                    #
+# Author: Shaun Ku, Samson Cournane                                                                                  #
+#                                                                                                                    #
+#                                                                                                                    #
+# Test result                                                                                                        #
+# ------------------------------------------------------------------------------------------------------------------ #
+# Date       | Name                     | BC   | Pass/Fail | Mutation                                                #
+# ------------------------------------------------------------------------------------------------------------------ #
+# 2026-04-15 | Init test                | 100% | 65/0      | 136/136   🎉 85 🫥 0  ⏰ 25  🤔 0  🙁 13  🔇 0  🧙 0  #
+# 2026-04-15 | Fix#1 Kill more mutation | 100% | 79/0      | 136/136  🎉 120 🫥 0  ⏰ 0  🤔 0  🙁 16  🔇 0  🧙 0   #
+# 2026-04-15 | Fix#2 Add edge case      | 100% | 89/3      | 136/136  🎉 120 🫥 0  ⏰ 0  🤔 0  🙁 16  🔇 0  🧙 0   #
+# ------------------------------------------------------------------------------------------------------------------ #
+######################################################################################################################
+
+import pytest
+
 from collections import OrderedDict
 from types import SimpleNamespace
 from unittest.mock import MagicMock, PropertyMock, patch
@@ -29,6 +47,8 @@ class DummyViewWithFields:
 class DummyViewWithClass:
     filterset_class = DummyFiltersetClass
 
+class DummyViewNoFilter:
+    pass
 
 class DummyPlainView:
     pass
@@ -137,23 +157,6 @@ class FiltersContractTests(SimpleTestCase):
             self.assertIn(field, filters.TummyTimeFilter.Meta.fields)
 
 
-class DummyFiltersetClass:
-    class Meta:
-        fields = ["child", "date"]
-
-
-class DummyViewWithFields:
-    filterset_fields = ("child", "date")
-
-
-class DummyViewWithClass:
-    filterset_class = DummyFiltersetClass
-
-
-class DummyPlainView:
-    pass
-
-
 class MetadataContractTests(SimpleTestCase):
     # Component: api/metadata.py
     # Intent: OPTIONS metadata should hide description and expose filters when available.
@@ -201,6 +204,81 @@ class MetadataContractTests(SimpleTestCase):
         with self.assertRaises(KeyError):
             APIMetadata().determine_metadata(None, DummyPlainView())
 
+    ## (fix#1) Kill more mutation
+    # Goal: kill metadata survivors by checking exact output shape and precedence rules.
+    @patch("rest_framework.metadata.SimpleMetadata.determine_metadata")
+    def test_metadata_returns_exact_output_with_filterset_fields(self, mock_super):
+        mock_super.return_value = {
+            "name": "Entry List",
+            "description": "to remove",
+            "renders": ["json"],
+            "parses": ["json"],
+        }
+        result = APIMetadata().determine_metadata(None, DummyViewWithFields())
+        self.assertEqual(
+            result,
+            {
+                "name": "Entry List",
+                "renders": ["json"],
+                "parses": ["json"],
+                "filters": ("child", "date"),
+            },
+        )
+
+    ## (fix#1) Kill more mutation
+    @patch("rest_framework.metadata.SimpleMetadata.determine_metadata")
+    def test_metadata_returns_exact_output_with_filterset_class(self, mock_super):
+        mock_super.return_value = {
+            "name": "Entry List",
+            "description": "to remove",
+            "renders": ["json"],
+        }
+        result = APIMetadata().determine_metadata(None, DummyViewWithClass())
+        self.assertEqual(
+            result,
+            {
+                "name": "Entry List",
+                "renders": ["json"],
+                "filters": ["child", "date"],
+            },
+        )
+
+    ## (fix#1) Kill more mutation
+    @patch("rest_framework.metadata.SimpleMetadata.determine_metadata")
+    def test_metadata_prefers_filterset_fields_over_filterset_class_exactly(self, mock_super):
+        class Both:
+            filterset_fields = ("x", "y")
+            filterset_class = DummyFiltersetClass
+
+        mock_super.return_value = {"name": "X", "description": "to remove"}
+        result = APIMetadata().determine_metadata(None, Both())
+        self.assertEqual(result, {"name": "X", "filters": ("x", "y")})
+
+    ## (fix#2) Add edge cases
+    ## APIMetadata.determine_metadata() assumes DRF always returns a description key. If that key is absent, it raises KeyError.
+    ## A defensive implementation would use data.pop("description", None).
+    @pytest.mark.found_bug
+    @pytest.mark.xfail(reason="Found project bug", strict=False)
+    @patch("rest_framework.metadata.SimpleMetadata.determine_metadata")
+    def test_metadata_with_empty_super_result(self, mock_super):
+        mock_super.return_value = {}
+        result = APIMetadata().determine_metadata(None, DummyViewNoFilter())
+        self.assertEqual(result, {})
+
+    ## (fix#2) Add edge cases (Failed)
+    ## APIMetadata.determine_metadata() assumes DRF always returns a description key. If that key is absent, it raises KeyError.
+    ## A defensive implementation would use data.pop("description", None).
+    @pytest.mark.found_bug
+    @pytest.mark.xfail(reason="Found project bug", strict=False)
+    @patch("rest_framework.metadata.SimpleMetadata.determine_metadata")
+    def test_metadata_with_none_fields(self, mock_super):
+        class View:
+            filterset_fields = None
+
+        mock_super.return_value = {"name": "X"}
+        result = APIMetadata().determine_metadata(None, View())
+        self.assertEqual(result, {"name": "X"})
+
 
 class PermissionsContractTests(SimpleTestCase):
     # Component: api/permissions.py
@@ -241,6 +319,12 @@ class PermissionsContractTests(SimpleTestCase):
 
     def test_put_is_not_supported_in_custom_permission_map(self):
         self.assertNotIn("PUT", BabyBuddyDjangoModelPermissions.perms_map)
+
+    ## (fix#2) Add edge cases
+    def test_permission_with_none_user(self):
+        perm = BabyBuddyDjangoModelPermissions()
+        request = SimpleNamespace(user=None)
+        self.assertFalse(perm.has_permission(request, None))
 
 
 class URLsContractTests(SimpleTestCase):
@@ -321,24 +405,59 @@ class URLsContractTests(SimpleTestCase):
         self.assertEqual(urls.app_name, "api")
         self.assertEqual(len(urls.urlpatterns), 2)
 
+    ## (fix#1) Kill more mutation
+    # Goal: kill router/init/add path survivors with stronger exact-state assertions.
+    def test_router_init_exact_state(self):
+        router = urls.CustomRouterWithExtraPaths()
+        self.assertEqual(router.extra_api_urls, [])
+        self.assertIsInstance(router.extra_api_urls, list)
+        self.assertEqual(len(router.extra_api_urls), 0)
 
-class DummyModel:
-    def __init__(self, **attrs):
-        for key, value in attrs.items():
-            setattr(self, key, value)
+    ## (fix#1) Kill more mutation
+    def test_add_detail_path_exact_extra_path_contents(self):
+        router = urls.CustomRouterWithExtraPaths()
+        router.add_detail_path("profile", "profile", dummy_view)
 
-    def clean(self):
-        return None
+        self.assertEqual(len(router.extra_api_urls), 1)
+        extra = router.extra_api_urls[0]
+        self.assertEqual(extra.path, "profile")
+        self.assertEqual(extra.reverese_name, "profile")
+        self.assertEqual(getattr(extra.route.pattern, "_route", None), "profile")
 
+    ## (fix#1) Kill more mutation
+    def test_get_api_root_view_exact_mapping(self):
+        router = urls.CustomRouterWithExtraPaths()
+        router.registry = [("bmi", object(), "bmi")]
+        router.add_detail_path("profile", "profile", dummy_view)
 
-class DummyCoreModelSerializer(api_serializers.CoreModelSerializer):
-    class Meta:
-        model = DummyModel
+        captured = {}
 
+        def fake_as_view(*, api_root_dict):
+            captured["api_root_dict"] = api_root_dict
+            return "root-view"
 
-class DummyDurationSerializer(api_serializers.CoreModelWithDurationSerializer):
-    class Meta(api_serializers.CoreModelWithDurationSerializer.Meta):
-        model = DummyModel
+        with patch.object(router.APIRootView, "as_view", side_effect=fake_as_view):
+            result = router.get_api_root_view()
+
+        self.assertEqual(result, "root-view")
+        self.assertEqual(
+            list(captured["api_root_dict"].keys()),
+            ["bmi", "profile"],
+        )
+        self.assertEqual(captured["api_root_dict"]["profile"], "profile")
+
+    ## (fix#2) Add edge cases
+    def test_router_add_empty_path(self):
+        router = urls.CustomRouterWithExtraPaths()
+        router.add_detail_path("", "", dummy_view)
+        self.assertEqual(len(router.extra_api_urls), 1)
+
+    ## (fix#2) Add edge cases
+    def test_router_multiple_additions(self):
+        router = urls.CustomRouterWithExtraPaths()
+        router.add_detail_path("a", "a", dummy_view)
+        router.add_detail_path("b", "b", dummy_view)
+        self.assertEqual(len(router.extra_api_urls), 2)
 
 
 class SerializersContractTests(SimpleTestCase):
@@ -483,6 +602,166 @@ class SerializersContractTests(SimpleTestCase):
     def test_bmi_serializer_uses_bmi_label_override(self):
         self.assertEqual(api_serializers.BMISerializer.Meta.extra_kwargs["core.BMI.bmi"]["label"], "BMI")
 
+    ## (fix#1) Kill more mutation
+    # Goal: kill CoreModelSerializer.validate survivors by asserting the object passed to clean()
+    # reflects merged values, not just return values.
+    def test_core_model_serializer_partial_validate_merges_new_values_before_clean(self):
+        seen = {}
+
+        def fake_clean(self):
+            seen["alpha"] = getattr(self, "alpha", None)
+            seen["beta"] = getattr(self, "beta", None)
+
+        instance = DummyModel(alpha=1, beta=2)
+        serializer = DummyCoreModelSerializer(instance=instance, partial=True)
+
+        with patch.object(DummyModel, "clean", fake_clean):
+            result = serializer.validate({"beta": 99})
+
+        self.assertEqual(result, {"beta": 99})
+        self.assertEqual(seen, {"alpha": 1, "beta": 99})
+        self.assertEqual(instance.beta, 2)
+
+    ## (fix#1) Kill more mutation
+    def test_core_model_serializer_non_partial_validate_builds_object_from_attrs_before_clean(self):
+        seen = {}
+
+        def fake_clean(self):
+            seen["alpha"] = getattr(self, "alpha", None)
+            seen["beta"] = getattr(self, "beta", None)
+
+        serializer = DummyCoreModelSerializer()
+
+        with patch.object(DummyModel, "clean", fake_clean):
+            result = serializer.validate({"alpha": 10, "beta": 20})
+
+        self.assertEqual(result, {"alpha": 10, "beta": 20})
+        self.assertEqual(seen, {"alpha": 10, "beta": 20})
+
+    ## (fix#1) Kill more mutation
+    # Goal: kill duration serializer survivors by checking exact success/failure contracts.
+    def test_duration_serializer_timer_success_stops_once_and_removes_timer_key(self):
+        serializer = DummyDurationSerializer()
+        timer = SimpleNamespace(child="timer-child", start="timer-start", stop=MagicMock())
+
+        with patch.object(api_serializers.timezone, "now", return_value="now"):
+            result = serializer.validate({"timer": timer})
+
+        self.assertEqual(
+            result,
+            {
+                "child": "timer-child",
+                "start": "timer-start",
+                "end": "now",
+            },
+        )
+        timer.stop.assert_called_once()
+
+    ## (fix#1) Kill more mutation
+    def test_duration_serializer_timer_failure_never_stops_timer(self):
+        serializer = DummyDurationSerializer()
+        timer = SimpleNamespace(child=None, start="timer-start", stop=MagicMock())
+
+        with patch.object(api_serializers.timezone, "now", return_value="now"):
+            with self.assertRaises(ValidationError):
+                serializer.validate({"timer": timer})
+
+        timer.stop.assert_not_called()
+
+    ## (fix#1) Kill more mutation
+    def test_duration_serializer_manual_values_are_overridden_by_timer_values(self):
+        serializer = DummyDurationSerializer()
+        timer = SimpleNamespace(child="timer-child", start="timer-start", stop=MagicMock())
+
+        with patch.object(api_serializers.timezone, "now", return_value="now"):
+            result = serializer.validate(
+                {
+                    "timer": timer,
+                    "child": "manual-child",
+                    "start": "manual-start",
+                    "end": "manual-end",
+                }
+            )
+
+        self.assertEqual(result["child"], "timer-child")
+        self.assertEqual(result["start"], "timer-start")
+        self.assertEqual(result["end"], "now")
+        self.assertNotEqual(result["child"], "manual-child")
+        self.assertNotEqual(result["start"], "manual-start")
+        self.assertNotEqual(result["end"], "manual-end")
+
+    ## (fix#1) Kill more mutation
+    def test_duration_serializer_partial_mode_keeps_empty_patch_valid(self):
+        serializer = DummyDurationSerializer(
+            instance=DummyModel(child="c", start="s", end="e"),
+            partial=True,
+        )
+        self.assertEqual(serializer.validate({}), {})
+
+    ## (fix#1) Kill more mutation
+    def test_timer_serializer_defaults_user_when_missing_or_none_and_preserves_explicit(self):
+        serializer = api_serializers.TimerSerializer(
+            context={"request": SimpleNamespace(user="request-user")}
+        )
+
+        with patch.object(api_serializers.CoreModelSerializer, "validate", return_value={"name": "x"}):
+            result_missing = serializer.validate({"name": "x"})
+        self.assertEqual(result_missing["user"], "request-user")
+
+        with patch.object(api_serializers.CoreModelSerializer, "validate", return_value={"user": None}):
+            result_none = serializer.validate({"user": None})
+        self.assertEqual(result_none["user"], "request-user")
+
+        with patch.object(api_serializers.CoreModelSerializer, "validate", return_value={"user": "explicit-user"}):
+            result_explicit = serializer.validate({"user": "explicit-user"})
+        self.assertEqual(result_explicit["user"], "explicit-user")
+
+    ## (fix#2) Add edge cases
+    def test_core_model_serializer_validate_with_empty_input(self):
+        serializer = DummyCoreModelSerializer()
+        result = serializer.validate({})
+        self.assertEqual(result, {})
+
+    ## (fix#2) Add edge cases
+    def test_core_model_serializer_validate_with_none_values(self):
+        serializer = DummyCoreModelSerializer()
+        result = serializer.validate({"alpha": None, "beta": None})
+        self.assertIn("alpha", result)
+        self.assertIsNone(result["alpha"])
+
+    ## (fix#2) Add edge cases
+    def test_core_model_serializer_validate_large_values(self):
+        serializer = DummyCoreModelSerializer()
+        large = 10**9
+        result = serializer.validate({"alpha": large, "beta": large})
+        self.assertEqual(result["alpha"], large)
+
+    ## (fix#2) Add edge cases
+    ## Failed
+    ## likely null-handling bug in CoreModelWithDurationSerializer.validate(): timer=None can pass field-level allowance but then crashes during validation
+    ## This suggests a mismatch between field contract and validation logic.
+    @pytest.mark.found_bug
+    @pytest.mark.xfail(reason="Found project bug", strict=False)
+    def test_duration_serializer_with_none_timer(self):
+        serializer = DummyDurationSerializer()
+        result = serializer.validate({"timer": None})
+        self.assertNotIn("timer", result)
+
+    ## (fix#2) Add edge cases
+    def test_duration_serializer_empty_input_non_partial(self):
+        serializer = DummyDurationSerializer()
+        with self.assertRaises(Exception):
+            serializer.validate({})
+
+    ## (fix#2) Add edge cases
+    def test_timer_serializer_with_empty_input(self):
+        serializer = api_serializers.TimerSerializer(
+            context={"request": SimpleNamespace(user="u")}
+        )
+        with patch.object(api_serializers.CoreModelSerializer, "validate", return_value={}):
+            result = serializer.validate({})
+        self.assertIn("user", result)
+
 
 class ViewsContractTests(SimpleTestCase):
     # Component: api/views.py
@@ -579,218 +858,7 @@ class ViewsContractTests(SimpleTestCase):
             with self.assertRaises(Http404):
                 view.get(request)
 
-
-## 100% BC / Mutation: 136/136  🎉 85 🫥 0  ⏰ 25  🤔 0  🙁 13  🔇 0  🧙 0
-
-class AdditionalMutationKillerTests(SimpleTestCase):
-    # =========================
-    # Targets: api/metadata.py
-    # =========================
-
-    # Goal: kill metadata survivors by checking exact output shape and precedence rules.
-    @patch("rest_framework.metadata.SimpleMetadata.determine_metadata")
-    def test_metadata_returns_exact_output_with_filterset_fields(self, mock_super):
-        mock_super.return_value = {
-            "name": "Entry List",
-            "description": "to remove",
-            "renders": ["json"],
-            "parses": ["json"],
-        }
-        result = APIMetadata().determine_metadata(None, DummyViewWithFields())
-        self.assertEqual(
-            result,
-            {
-                "name": "Entry List",
-                "renders": ["json"],
-                "parses": ["json"],
-                "filters": ("child", "date"),
-            },
-        )
-
-    @patch("rest_framework.metadata.SimpleMetadata.determine_metadata")
-    def test_metadata_returns_exact_output_with_filterset_class(self, mock_super):
-        mock_super.return_value = {
-            "name": "Entry List",
-            "description": "to remove",
-            "renders": ["json"],
-        }
-        result = APIMetadata().determine_metadata(None, DummyViewWithClass())
-        self.assertEqual(
-            result,
-            {
-                "name": "Entry List",
-                "renders": ["json"],
-                "filters": ["child", "date"],
-            },
-        )
-
-    @patch("rest_framework.metadata.SimpleMetadata.determine_metadata")
-    def test_metadata_prefers_filterset_fields_over_filterset_class_exactly(self, mock_super):
-        class Both:
-            filterset_fields = ("x", "y")
-            filterset_class = DummyFiltersetClass
-
-        mock_super.return_value = {"name": "X", "description": "to remove"}
-        result = APIMetadata().determine_metadata(None, Both())
-        self.assertEqual(result, {"name": "X", "filters": ("x", "y")})
-
-    # ==============================
-    # Targets: api/serializers.py
-    # ==============================
-
-    # Goal: kill CoreModelSerializer.validate survivors by asserting the object passed to clean()
-    # reflects merged values, not just return values.
-    def test_core_model_serializer_partial_validate_merges_new_values_before_clean(self):
-        seen = {}
-
-        def fake_clean(self):
-            seen["alpha"] = getattr(self, "alpha", None)
-            seen["beta"] = getattr(self, "beta", None)
-
-        instance = DummyModel(alpha=1, beta=2)
-        serializer = DummyCoreModelSerializer(instance=instance, partial=True)
-
-        with patch.object(DummyModel, "clean", fake_clean):
-            result = serializer.validate({"beta": 99})
-
-        self.assertEqual(result, {"beta": 99})
-        self.assertEqual(seen, {"alpha": 1, "beta": 99})
-        self.assertEqual(instance.beta, 2)
-
-    def test_core_model_serializer_non_partial_validate_builds_object_from_attrs_before_clean(self):
-        seen = {}
-
-        def fake_clean(self):
-            seen["alpha"] = getattr(self, "alpha", None)
-            seen["beta"] = getattr(self, "beta", None)
-
-        serializer = DummyCoreModelSerializer()
-
-        with patch.object(DummyModel, "clean", fake_clean):
-            result = serializer.validate({"alpha": 10, "beta": 20})
-
-        self.assertEqual(result, {"alpha": 10, "beta": 20})
-        self.assertEqual(seen, {"alpha": 10, "beta": 20})
-
-    # Goal: kill duration serializer survivors by checking exact success/failure contracts.
-    def test_duration_serializer_timer_success_stops_once_and_removes_timer_key(self):
-        serializer = DummyDurationSerializer()
-        timer = SimpleNamespace(child="timer-child", start="timer-start", stop=MagicMock())
-
-        with patch.object(api_serializers.timezone, "now", return_value="now"):
-            result = serializer.validate({"timer": timer})
-
-        self.assertEqual(
-            result,
-            {
-                "child": "timer-child",
-                "start": "timer-start",
-                "end": "now",
-            },
-        )
-        timer.stop.assert_called_once()
-
-    def test_duration_serializer_timer_failure_never_stops_timer(self):
-        serializer = DummyDurationSerializer()
-        timer = SimpleNamespace(child=None, start="timer-start", stop=MagicMock())
-
-        with patch.object(api_serializers.timezone, "now", return_value="now"):
-            with self.assertRaises(ValidationError):
-                serializer.validate({"timer": timer})
-
-        timer.stop.assert_not_called()
-
-    def test_duration_serializer_manual_values_are_overridden_by_timer_values(self):
-        serializer = DummyDurationSerializer()
-        timer = SimpleNamespace(child="timer-child", start="timer-start", stop=MagicMock())
-
-        with patch.object(api_serializers.timezone, "now", return_value="now"):
-            result = serializer.validate(
-                {
-                    "timer": timer,
-                    "child": "manual-child",
-                    "start": "manual-start",
-                    "end": "manual-end",
-                }
-            )
-
-        self.assertEqual(result["child"], "timer-child")
-        self.assertEqual(result["start"], "timer-start")
-        self.assertEqual(result["end"], "now")
-        self.assertNotEqual(result["child"], "manual-child")
-        self.assertNotEqual(result["start"], "manual-start")
-        self.assertNotEqual(result["end"], "manual-end")
-
-    def test_duration_serializer_partial_mode_keeps_empty_patch_valid(self):
-        serializer = DummyDurationSerializer(
-            instance=DummyModel(child="c", start="s", end="e"),
-            partial=True,
-        )
-        self.assertEqual(serializer.validate({}), {})
-
-    def test_timer_serializer_defaults_user_when_missing_or_none_and_preserves_explicit(self):
-        serializer = api_serializers.TimerSerializer(
-            context={"request": SimpleNamespace(user="request-user")}
-        )
-
-        with patch.object(api_serializers.CoreModelSerializer, "validate", return_value={"name": "x"}):
-            result_missing = serializer.validate({"name": "x"})
-        self.assertEqual(result_missing["user"], "request-user")
-
-        with patch.object(api_serializers.CoreModelSerializer, "validate", return_value={"user": None}):
-            result_none = serializer.validate({"user": None})
-        self.assertEqual(result_none["user"], "request-user")
-
-        with patch.object(api_serializers.CoreModelSerializer, "validate", return_value={"user": "explicit-user"}):
-            result_explicit = serializer.validate({"user": "explicit-user"})
-        self.assertEqual(result_explicit["user"], "explicit-user")
-
-    # ========================
-    # Targets: api/urls.py
-    # ========================
-
-    # Goal: kill router/init/add path survivors with stronger exact-state assertions.
-    def test_router_init_exact_state(self):
-        router = urls.CustomRouterWithExtraPaths()
-        self.assertEqual(router.extra_api_urls, [])
-        self.assertIsInstance(router.extra_api_urls, list)
-        self.assertEqual(len(router.extra_api_urls), 0)
-
-    def test_add_detail_path_exact_extra_path_contents(self):
-        router = urls.CustomRouterWithExtraPaths()
-        router.add_detail_path("profile", "profile", dummy_view)
-
-        self.assertEqual(len(router.extra_api_urls), 1)
-        extra = router.extra_api_urls[0]
-        self.assertEqual(extra.path, "profile")
-        self.assertEqual(extra.reverese_name, "profile")
-        self.assertEqual(getattr(extra.route.pattern, "_route", None), "profile")
-
-    def test_get_api_root_view_exact_mapping(self):
-        router = urls.CustomRouterWithExtraPaths()
-        router.registry = [("bmi", object(), "bmi")]
-        router.add_detail_path("profile", "profile", dummy_view)
-
-        captured = {}
-
-        def fake_as_view(*, api_root_dict):
-            captured["api_root_dict"] = api_root_dict
-            return "root-view"
-
-        with patch.object(router.APIRootView, "as_view", side_effect=fake_as_view):
-            result = router.get_api_root_view()
-
-        self.assertEqual(result, "root-view")
-        self.assertEqual(
-            list(captured["api_root_dict"].keys()),
-            ["bmi", "profile"],
-        )
-        self.assertEqual(captured["api_root_dict"]["profile"], "profile")
-
-    # ========================
-    # Targets: api/views.py
-    # ========================
-
+    ## (fix#1) Kill more mutation
     # Goal: kill BMIViewSet.get_view_name survivor by checking exact strings, not just containment.
     def test_bmi_get_view_name_exact_values(self):
         view = views.BMIViewSet()
@@ -800,4 +868,16 @@ class AdditionalMutationKillerTests(SimpleTestCase):
         view.suffix = "List"
         self.assertEqual(view.get_view_name(), f"{models.BMI._meta.verbose_name} List")
 
-## 100% BC / Mutation: 136/136  🎉 120 🫥 0  ⏰ 0  🤔 0  🙁 16  🔇 0  🧙 0
+    ## (fix#2) Add edge cases
+    def test_bmi_view_name_with_empty_suffix(self):
+        view = views.BMIViewSet()
+        view.suffix = ""
+        expected = str(models.BMI._meta.verbose_name)
+        self.assertEqual(view.get_view_name(), expected)
+
+    ## (fix#2) Add edge cases
+    def test_profile_view_get_with_none_request(self):
+        view = views.ProfileView()
+        request = None
+        with self.assertRaises(Exception):
+            view.get(request)
