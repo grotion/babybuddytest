@@ -800,3 +800,4 @@ class AdditionalMutationKillerTests(SimpleTestCase):
         view.suffix = "List"
         self.assertEqual(view.get_view_name(), f"{models.BMI._meta.verbose_name} List")
 
+## 100% BC / Mutation: 136/136  🎉 120 🫥 0  ⏰ 0  🤔 0  🙁 16  🔇 0  🧙 0
