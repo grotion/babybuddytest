@@ -1,20 +1,22 @@
-#########################################################################################################################
-# core whitebox test                                                                                                    #
-#                                                                                                                       #
-# Author: Shaun Ku, Samson Cournane                                                                                     #
-#                                                                                                                       #
-#                                                                                                                       #
-# Test result                                                                                                           #
-# --------------------------------------------------------------------------------------------------------------------- #
-# Date       | Name                     | BC   | Pass/Fail | Mutation                                                   #
-# --------------------------------------------------------------------------------------------------------------------- #
-# 2026-04-17 | Initial Test             | 76%  | 36/0      | 1806/1806  🎉 680 🫥 862  ⏰ 0  🤔 0  🙁 264  🔇 0  🧙 0 #
-# --------------------------------------------------------------------------------------------------------------------- #
-#########################################################################################################################
+###########################################################################################################################
+# core whitebox test                                                                                                      #
+#                                                                                                                         #
+# Author: Shaun Ku, Samson Cournane                                                                                       #
+#                                                                                                                         #
+#                                                                                                                         #
+# Test result                                                                                                             #
+# ----------------------------------------------------------------------------------------------------------------------- #
+# Date       | Name                     | BC   | Pass/Fail | Mutation                                                     #
+# ----------------------------------------------------------------------------------------------------------------------- #
+# 2026-04-17 | Initial Test             | 76%  | 36/0      | 1806/1806  🎉 680 🫥 862  ⏰ 0  🤔 0  🙁 264  🔇 0  🧙 0   #
+# 2026-04-19 | Fix#1                    | 89%  | 128/0     | 1806/1806  🎉 675 🫥 707  ⏰ 154  🤔 0  🙁 270  🔇 0  🧙 0 #
+# 2026-04-19 | Fix#2                    | 94%  | 169/0     | 1806/1806  🎉 897 🫥 534  ⏰ 0  🤔 0  🙁 375  🔇 0  🧙 0   #
+# ----------------------------------------------------------------------------------------------------------------------- #
+###########################################################################################################################
 
 import datetime
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, MagicMock, patch, call
 
 import pytest
 from django import forms as django_forms
@@ -25,6 +27,12 @@ from core import forms as core_forms
 from core import timeline as core_timeline
 from core import utils as core_utils
 from core import views as core_views
+from core import models as core_models
+from core.widgets import TagsEditor, ChildRadioSelect, PillRadioSelect
+from core.templatetags import duration as duration_tags
+from core.templatetags import misc as misc_tags
+from core.templatetags import bootstrap as bootstrap_tags
+from core.templatetags import datetime as datetime_tags
 
 
 class FakeQuerySet:
@@ -136,6 +144,73 @@ class TestCoreUtilsModule:
         end = datetime.datetime(2026, 1, 1, 16, 30, tzinfo=utc)
 
         assert core_utils.timezone_aware_duration(start, end) == datetime.timedelta(hours=1, minutes=30)
+
+    ## Fix#1
+    def test_duration_string_zero_hours_omits_hours(self):
+        # h > 0 branch: when h == 0, hours not included
+        d = datetime.timedelta(minutes=5, seconds=3)
+        result = core_utils.duration_string(d)
+        assert "hour" not in result
+        assert "5 minutes" in result
+
+    ## Fix#1
+    def test_duration_string_with_hours_and_no_seconds_at_m_precision(self):
+        # precision="m" gates seconds
+        d = datetime.timedelta(hours=1, minutes=30, seconds=45)
+        result = core_utils.duration_string(d, precision="m")
+        assert "second" not in result
+        assert "1 hour" in result
+        assert "30 minutes" in result
+
+    ## Fix#1
+    def test_duration_string_zero_seconds_omits_seconds(self):
+        # s > 0 branch: zero seconds not shown
+        d = datetime.timedelta(hours=1, minutes=5)
+        result = core_utils.duration_string(d)
+        assert "second" not in result
+
+    ## Fix#1
+    def test_duration_string_partial_branch_minutes_always_shown(self):
+        # "if m >= 0 and precision != 'h':" — m=0, precision='s' → show "0 minutes"
+        d = datetime.timedelta(hours=2)
+        result = core_utils.duration_string(d, precision="s")
+        assert "0 minutes" in result
+
+    ## Fix#1
+    def test_duration_parts_zero_duration(self):
+        d = datetime.timedelta(0)
+        assert core_utils.duration_parts(d) == (0, 0, 0)
+
+    ## Fix#1
+    def test_duration_parts_exactly_one_hour(self):
+        d = datetime.timedelta(hours=1)
+        assert core_utils.duration_parts(d) == (1, 0, 0)
+
+    ## Fix#1
+    def test_timezone_aware_duration_returns_timedelta(self):
+        utc = datetime.timezone.utc
+        start = datetime.datetime(2026, 1, 1, 10, 0, tzinfo=utc)
+        end = datetime.datetime(2026, 1, 1, 11, 30, tzinfo=utc)
+        result = core_utils.timezone_aware_duration(start, end)
+        assert result == datetime.timedelta(hours=1, minutes=30)
+
+    ## Fix#2
+    def test_duration_string_seconds_with_comma_separator(self):
+        # partial branch line 49: "if duration != ''" before adding seconds
+        # need a duration that has hours/minutes already in string
+        d = datetime.timedelta(hours=1, minutes=2, seconds=3)
+        result = core_utils.duration_string(d, precision="s")
+        assert ", 3 seconds" in result
+
+    ## Fix#2
+    def test_duration_string_only_seconds_no_comma(self):
+        # s > 0 but duration == "" (no hours, no minutes shown at h precision)
+        # Actually with precision="s" and 0h 0m: "0 minutes, X seconds"
+        # Test: only seconds, no preceding comma from hours
+        d = datetime.timedelta(seconds=5)
+        result = core_utils.duration_string(d, precision="s")
+        assert "5 seconds" in result
+        assert "0 minutes, 5 seconds" == result
 
 
 class TestCoreFieldsModule:
@@ -500,6 +575,78 @@ class TestCoreFormsModule:
         assert instance.user is user
         instance.save.assert_called_once_with()
 
+    ## Fix#1
+    def test_set_initial_values_no_child_count_zero_does_not_set_child(self, monkeypatch):
+        # elif models.Child.count() == 1 branch: count=0 → no child set
+        fake_models = SimpleNamespace(
+            Child=SimpleNamespace(objects=SimpleNamespace(first=lambda: None), count=lambda: 0),
+            Timer=SimpleNamespace(objects=SimpleNamespace(get=lambda id: None), DoesNotExist=LookupError),
+            Feeding=SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([]))),
+            Sleep=SimpleNamespace(settings=SimpleNamespace(nap_start_min=datetime.time(9), nap_start_max=datetime.time(17))),
+        )
+        monkeypatch.setattr(core_forms, "models", fake_models)
+        monkeypatch.setattr(core_forms, "Timer", fake_models.Timer)
+        monkeypatch.setattr(core_forms.timezone, "localtime",
+                            lambda v=None: v or datetime.datetime(2026, 4, 1, 8, 0, tzinfo=datetime.timezone.utc))
+
+        result = core_forms.set_initial_values({}, core_forms.FeedingForm)
+        assert "child" not in result.get("initial", {})
+
+    ## Fix#1
+    def test_set_initial_values_sleep_nap_false_outside_window(self, monkeypatch):
+        # SleepForm branch: time outside nap window → nap=False
+        fake_models = SimpleNamespace(
+            Child=SimpleNamespace(objects=SimpleNamespace(first=lambda: None), count=lambda: 0),
+            Timer=SimpleNamespace(objects=SimpleNamespace(get=lambda id: None), DoesNotExist=LookupError),
+            Feeding=SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([]))),
+            Sleep=SimpleNamespace(settings=SimpleNamespace(nap_start_min=datetime.time(9), nap_start_max=datetime.time(17))),
+        )
+        monkeypatch.setattr(core_forms, "models", fake_models)
+        monkeypatch.setattr(core_forms, "Timer", fake_models.Timer)
+        # 6am is outside the 9am-5pm nap window
+        monkeypatch.setattr(core_forms.timezone, "localtime",
+                            lambda v=None: v or datetime.datetime(2026, 4, 1, 6, 0, tzinfo=datetime.timezone.utc))
+
+        result = core_forms.set_initial_values({}, core_forms.SleepForm)
+        assert result["initial"]["nap"] is False
+
+    ## Fix#1
+    def test_set_initial_values_no_feeding_last_does_not_set_type(self, monkeypatch):
+        # if last_feeding: branch — no last feeding → no type/method set
+        child = SimpleNamespace(slug="kid")
+        fake_models = SimpleNamespace(
+            Child=SimpleNamespace(objects=SimpleNamespace(
+                filter=lambda **kwargs: FakeQuerySet([child]),
+                first=lambda: child,
+            ), count=lambda: 1),
+            Timer=SimpleNamespace(objects=SimpleNamespace(get=lambda id: None), DoesNotExist=LookupError),
+            Feeding=SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([]))),
+            Sleep=SimpleNamespace(settings=SimpleNamespace(nap_start_min=datetime.time(9), nap_start_max=datetime.time(17))),
+        )
+        monkeypatch.setattr(core_forms, "models", fake_models)
+        monkeypatch.setattr(core_forms, "Timer", fake_models.Timer)
+        monkeypatch.setattr(core_forms.timezone, "localtime",
+                            lambda v=None: v or datetime.datetime(2026, 4, 1, 8, 0, tzinfo=datetime.timezone.utc))
+
+        result = core_forms.set_initial_values({}, core_forms.FeedingForm)
+        assert "type" not in result.get("initial", {})
+        assert "method" not in result.get("initial", {})
+
+    ## Fix#1
+    def test_core_model_form_save_no_timer_does_not_call_get(self, monkeypatch):
+        # if self.timer_id: branch — no timer_id → Timer.objects.get not called
+        get_mock = Mock()
+        instance = SimpleNamespace(save=Mock())
+        monkeypatch.setattr(core_forms.models.Timer.objects, "get", get_mock)
+        monkeypatch.setattr(core_forms.CoreModelForm.__bases__[0], "save", lambda self, commit=False: instance)
+
+        form = object.__new__(core_forms.CoreModelForm)
+        form.timer_id = None
+        form.save_m2m = Mock()
+
+        core_forms.CoreModelForm.save(form, commit=False)
+        get_mock.assert_not_called()
+
 
 class TestCoreViewsModule:
     def test_prepare_timeline_context_data_sets_previous_and_optional_next_dates(self, monkeypatch):
@@ -676,6 +823,88 @@ class TestCoreViewsModule:
         timer._restart.assert_called_once_with()
         assert success_messages == [(request, "Nap timer restarted.")]
         assert view.get_redirect_url(pk=33) == "core:timer-detail:33"
+
+    ## Fix#1
+    def test_prepare_timeline_context_no_next_date_when_today(self, monkeypatch):
+        # Already tested — kept to confirm partial branch closed
+        fake_date = datetime.datetime(2026, 4, 15, 0, 0, tzinfo=datetime.timezone.utc)
+        monkeypatch.setattr(core_views.timezone, "datetime",
+                            SimpleNamespace(strptime=lambda v, f: datetime.datetime(2026, 4, 15, 0, 0)))
+        monkeypatch.setattr(core_views.timezone, "make_aware", lambda v: fake_date)
+        monkeypatch.setattr(core_views.timezone, "localtime", lambda v: v)
+        monkeypatch.setattr(core_views.timezone, "localdate", lambda: datetime.date(2026, 4, 15))
+        monkeypatch.setattr(core_views.timeline, "get_objects", lambda date, child=None: [])
+
+        context = {}
+        core_views._prepare_timeline_context_data(context, "2026-04-15")
+        assert "date_next" not in context
+
+    ## Fix#1
+    def test_timeline_view_redirects_when_single_child(self, monkeypatch):
+        # Timeline.get: children==1 → redirect to child detail
+        monkeypatch.setattr(core_views.models.Child.objects, "count", lambda: 1)
+        monkeypatch.setattr(core_views.models.Child.objects, "first",
+                            lambda: SimpleNamespace(slug="ava"))
+        monkeypatch.setattr(core_views, "reverse",
+                            lambda name, args=None, kwargs=None: f"/core/children/ava/")
+
+        view = core_views.Timeline()
+        request = SimpleNamespace(GET={})
+        view.request = request
+
+        response = view.get(request)
+        assert response.status_code == 302
+
+    ## Fix#1
+    def test_timeline_view_no_redirect_for_multiple_children(self, monkeypatch):
+        # Timeline.get: children!=1 → calls super().get
+        monkeypatch.setattr(core_views.models.Child.objects, "count", lambda: 2)
+
+        class FakeSuperResponse:
+            status_code = 200
+
+        import django.views.generic.base as base_views
+        monkeypatch.setattr(base_views.TemplateView, "get",
+                            lambda self, request, *a, **kw: FakeSuperResponse())
+        monkeypatch.setattr(core_views.timeline, "get_objects", lambda date, child=None: [])
+        monkeypatch.setattr(core_views.timezone, "localdate", lambda: datetime.date(2026, 4, 15))
+        monkeypatch.setattr(core_views.timezone, "datetime",
+                            SimpleNamespace(strptime=lambda v, f: datetime.datetime(2026, 4, 15, 0, 0)))
+        monkeypatch.setattr(core_views.timezone, "make_aware",
+                            lambda v: datetime.datetime(2026, 4, 15, 0, 0, tzinfo=datetime.timezone.utc))
+        monkeypatch.setattr(core_views.timezone, "localtime",
+                            lambda v: datetime.datetime(2026, 4, 15, 0, 0, tzinfo=datetime.timezone.utc))
+
+        view = core_views.Timeline()
+        view.request = SimpleNamespace(GET={})
+        view.kwargs = {}
+        response = view.get(view.request)
+        assert response.status_code == 200
+
+    ## Fix#2
+    def test_timeline_get_context_data_multiple_children(self, monkeypatch):
+        # Timeline.get_context_data: calls _prepare_timeline_context_data
+        fake_date = datetime.datetime(2026, 4, 15, 0, 0, tzinfo=datetime.timezone.utc)
+        monkeypatch.setattr(core_views.timezone, "localdate",
+                            lambda: datetime.date(2026, 4, 17))
+        monkeypatch.setattr(core_views.timezone, "datetime",
+                            SimpleNamespace(strptime=lambda v, f: datetime.datetime(2026, 4, 15, 0, 0)))
+        monkeypatch.setattr(core_views.timezone, "make_aware", lambda v: fake_date)
+        monkeypatch.setattr(core_views.timezone, "localtime", lambda v: v)
+        monkeypatch.setattr(core_views.timeline, "get_objects", lambda date, child=None: [])
+
+        import django.views.generic.base as base_views
+        monkeypatch.setattr(base_views.TemplateView, "get_context_data",
+                            lambda self, **kw: {"object_list": []})
+
+        view = core_views.Timeline()
+        view.request = SimpleNamespace(GET={"date": "2026-04-15"})
+        view.kwargs = {}
+        view.object_list = []
+
+        context = view.get_context_data()
+        assert "timeline_objects" in context
+        assert "date" in context
 
 
 class TestCoreTimelineModule:
@@ -922,4 +1151,1307 @@ class TestCoreTimelineModule:
         ]
         assert all(item[3] == "kid" for item in call_order)
         assert [event["event"] for event in events] == ["temp", "note", "tummy", "sleep-end", "feeding-start", "diaper"]
+
+    ## Fix#1
+    def test_add_feedings_no_child_filter_includes_all_children(self, monkeypatch):
+        # child=None branch: no filter applied
+        min_date = datetime.datetime(2026, 4, 10, 0, 0, tzinfo=datetime.timezone.utc)
+        max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
+        child_a = SimpleNamespace(first_name="Ava")
+        child_b = SimpleNamespace(first_name="Ben")
+        feeding = SimpleNamespace(
+            id=1, child=child_a,
+            start=min_date + datetime.timedelta(hours=1),
+            end=min_date + datetime.timedelta(hours=1),
+            duration=datetime.timedelta(0),
+            notes="", amount=None, model_name="feeding",
+            tags=SimpleNamespace(all=lambda: []),
+        )
+        qs = FakeQuerySet([feeding])
+        monkeypatch.setattr(core_timeline, "Feeding",
+                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: qs.filter(**kwargs))))
+        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
+        monkeypatch.setattr(core_timeline.timesince, "timesince", lambda s, now=None: "")
+
+        events = []
+        core_timeline._add_feedings(min_date, max_date, events, child=None)
+        # No child filter applied — feeding should be included
+        assert len(events) == 1
+
+    ## Fix#1
+    def test_add_sleeps_no_child_filter(self, monkeypatch):
+        # child=None path for _add_sleeps
+        min_date = datetime.datetime(2026, 4, 10, 0, 0, tzinfo=datetime.timezone.utc)
+        max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
+        child = SimpleNamespace(first_name="Ava")
+        sleep = SimpleNamespace(
+            id=1, child=child,
+            start=min_date + datetime.timedelta(hours=1),
+            end=min_date + datetime.timedelta(hours=2),
+            duration=datetime.timedelta(hours=1),
+            notes="", model_name="sleep",
+            tags=SimpleNamespace(all=lambda: []),
+        )
+        monkeypatch.setattr(core_timeline, "Sleep",
+                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([sleep]).filter(**kwargs))))
+        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
+        monkeypatch.setattr(core_timeline, "duration_string", lambda v: "1 hour")
+
+        events = []
+        core_timeline._add_sleeps(min_date, max_date, events, child=None)
+        assert len(events) == 2
+
+    ## Fix#1
+    def test_add_tummy_times_no_milestone(self, monkeypatch):
+        # if instance.milestone: branch — no milestone → details empty
+        min_date = datetime.datetime(2026, 4, 10, 0, 0, tzinfo=datetime.timezone.utc)
+        max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
+        child = SimpleNamespace(first_name="Ava")
+        tummy = SimpleNamespace(
+            id=1, child=child,
+            start=min_date + datetime.timedelta(hours=1),
+            end=min_date + datetime.timedelta(hours=1, minutes=5),
+            duration=datetime.timedelta(minutes=5),
+            milestone="", model_name="tummytime",
+            tags=SimpleNamespace(all=lambda: []),
+        )
+        monkeypatch.setattr(core_timeline, "TummyTime",
+                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([tummy]).filter(**kwargs))))
+        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
+        monkeypatch.setattr(core_timeline, "duration_string", lambda v: "5 minutes")
+
+        events = []
+        core_timeline._add_tummy_times(min_date, max_date, events)
+        start_event = events[0]
+        assert start_event["details"] == []
+
+    ## Fix#1
+    def test_add_sleeps_no_notes(self, monkeypatch):
+        # if instance.notes: branch — empty notes → empty details
+        min_date = datetime.datetime(2026, 4, 10, 0, 0, tzinfo=datetime.timezone.utc)
+        max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
+        child = SimpleNamespace(first_name="Ava")
+        sleep = SimpleNamespace(
+            id=2, child=child,
+            start=min_date + datetime.timedelta(hours=1),
+            end=min_date + datetime.timedelta(hours=2),
+            duration=datetime.timedelta(hours=1),
+            notes="", model_name="sleep",
+            tags=SimpleNamespace(all=lambda: []),
+        )
+        monkeypatch.setattr(core_timeline, "Sleep",
+                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([sleep]).filter(**kwargs))))
+        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
+        monkeypatch.setattr(core_timeline, "duration_string", lambda v: "1 hour")
+
+        events = []
+        core_timeline._add_sleeps(min_date, max_date, events)
+        assert events[0]["details"] == []
+
+    ## Fix#1
+    def test_add_temperature_no_notes_no_temperature(self, monkeypatch):
+        # both "if instance.notes" and "if instance.temperature" false → empty details
+        min_date = datetime.datetime(2026, 4, 10, 0, 0, tzinfo=datetime.timezone.utc)
+        max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
+        child = SimpleNamespace(first_name="Ava")
+        temp = SimpleNamespace(
+            id=1, child=child,
+            time=min_date + datetime.timedelta(hours=1),
+            notes="", temperature=None,
+            model_name="temperature",
+            tags=SimpleNamespace(all=lambda: []),
+        )
+        monkeypatch.setattr(core_timeline, "Temperature",
+                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([temp]).filter(**kwargs))))
+        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
+
+        events = []
+        core_timeline._add_temperature_measurements(min_date, max_date, events, child=child)
+        assert events[0]["details"] == []
+
+    ## Fix#1
+    def test_add_diaper_change_wet_only(self, monkeypatch):
+        # wet=True, solid=False → only 💧
+        min_date = datetime.datetime(2026, 4, 10, 0, 0, tzinfo=datetime.timezone.utc)
+        max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
+        child = SimpleNamespace(first_name="Ava")
+        change = SimpleNamespace(
+            id=1, child=child,
+            time=min_date + datetime.timedelta(hours=1),
+            wet=True, solid=False,
+            model_name="diaperchange",
+            tags=SimpleNamespace(all=lambda: []),
+        )
+        monkeypatch.setattr(core_timeline, "DiaperChange",
+                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([change]).filter(**kwargs))))
+        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
+
+        events = []
+        core_timeline._add_diaper_changes(min_date, max_date, events, child=child)
+        assert "💧" in events[0]["event"]
+        assert "💩" not in events[0]["event"]
+
+    ## Fix#1
+    def test_get_objects_max_date_replaces_time_correctly(self, monkeypatch):
+        # max_date = date.replace(hour=23, minute=59, second=59)
+        base = datetime.datetime(2026, 4, 10, 0, 0, tzinfo=datetime.timezone.utc)
+        captured = {}
+
+        def fake_add(min_date, max_date, events, child=None):
+            captured["max"] = max_date
+
+        for attr in ["_add_diaper_changes", "_add_feedings", "_add_sleeps",
+                     "_add_tummy_times", "_add_notes", "_add_temperature_measurements"]:
+            monkeypatch.setattr(core_timeline, attr, fake_add)
+
+        core_timeline.get_objects(base)
+        assert captured["max"].hour == 23
+        assert captured["max"].minute == 59
+        assert captured["max"].second == 59
+
+    ## Fix#2
+    def test_add_tummy_times_child_filter_applied_when_child_given(self, monkeypatch):
+        # partial branch: child given → instances.filter(child=child) called
+        min_date = datetime.datetime(2026, 4, 10, 0, 0, tzinfo=datetime.timezone.utc)
+        max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
+        child = SimpleNamespace(first_name="Ava")
+        tummy = SimpleNamespace(
+            id=1, child=child,
+            start=min_date + datetime.timedelta(hours=1),
+            end=min_date + datetime.timedelta(hours=1, minutes=5),
+            duration=datetime.timedelta(minutes=5),
+            milestone="rolled over", model_name="tummytime",
+            tags=SimpleNamespace(all=lambda: []),
+        )
+        qs = FakeQuerySet([tummy])
+        filter_calls = []
+        orig_filter = qs.filter
+
+        def tracking_filter(**kwargs):
+            filter_calls.append(kwargs)
+            return orig_filter(**kwargs)
+        qs.filter = tracking_filter
+
+        monkeypatch.setattr(core_timeline, "TummyTime",
+                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kw: qs.filter(**kw))))
+        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
+        monkeypatch.setattr(core_timeline, "duration_string", lambda v: "5 minutes")
+
+        events = []
+        core_timeline._add_tummy_times(min_date, max_date, events, child=child)
+        assert len(events) == 2
+
+    ## Fix#2
+    def test_add_diaper_changes_no_child_includes_all(self, monkeypatch):
+        # partial branch: child=None → no filter
+        min_date = datetime.datetime(2026, 4, 10, 0, 0, tzinfo=datetime.timezone.utc)
+        max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
+        child = SimpleNamespace(first_name="Ava")
+        change = SimpleNamespace(
+            id=1, child=child,
+            time=min_date + datetime.timedelta(hours=1),
+            wet=True, solid=False, model_name="diaperchange",
+            tags=SimpleNamespace(all=lambda: []),
+        )
+        monkeypatch.setattr(core_timeline, "DiaperChange",
+                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kw: FakeQuerySet([change]).filter(**kw))))
+        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
+
+        events = []
+        core_timeline._add_diaper_changes(min_date, max_date, events, child=None)
+        assert len(events) == 1
+
+    ## Fix#2
+    def test_add_notes_no_child_includes_all(self, monkeypatch):
+        # partial branch: child=None → no filter
+        min_date = datetime.datetime(2026, 4, 10, 0, 0, tzinfo=datetime.timezone.utc)
+        max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
+        child = SimpleNamespace(first_name="Ava")
+        note = SimpleNamespace(
+            id=1, child=child,
+            time=min_date + datetime.timedelta(hours=1),
+            note="test note", model_name="note",
+            tags=SimpleNamespace(all=lambda: []),
+        )
+        monkeypatch.setattr(core_timeline, "Note",
+                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kw: FakeQuerySet([note]).filter(**kw))))
+        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
+
+        events = []
+        core_timeline._add_notes(min_date, max_date, events, child=None)
+        assert len(events) == 1
+
+    ## Fix#2
+    def test_add_temperature_no_child_includes_all(self, monkeypatch):
+        # partial branch: child=None → no filter
+        min_date = datetime.datetime(2026, 4, 10, 0, 0, tzinfo=datetime.timezone.utc)
+        max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
+        child = SimpleNamespace(first_name="Ava")
+        temp = SimpleNamespace(
+            id=1, child=child,
+            time=min_date + datetime.timedelta(hours=1),
+            notes="", temperature=98.6, model_name="temperature",
+            tags=SimpleNamespace(all=lambda: []),
+        )
+        monkeypatch.setattr(core_timeline, "Temperature",
+                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kw: FakeQuerySet([temp]).filter(**kw))))
+        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
+
+        events = []
+        core_timeline._add_temperature_measurements(min_date, max_date, events, child=None)
+        assert len(events) == 1
+
+    ## Fix#2
+    def test_add_feedings_child_filter_skipped_when_no_child(self, monkeypatch):
+        # partial branch: child=None path for feedings
+        min_date = datetime.datetime(2026, 4, 10, 0, 0, tzinfo=datetime.timezone.utc)
+        max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
+        child = SimpleNamespace(first_name="Ava")
+        feeding = SimpleNamespace(
+            id=1, child=child,
+            start=min_date + datetime.timedelta(hours=2),
+            end=min_date + datetime.timedelta(hours=2),
+            duration=datetime.timedelta(0),
+            notes="", amount=None, model_name="feeding",
+            tags=SimpleNamespace(all=lambda: []),
+        )
+        monkeypatch.setattr(core_timeline, "Feeding",
+                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kw: FakeQuerySet([feeding]).filter(**kw))))
+        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
+        monkeypatch.setattr(core_timeline.timesince, "timesince", lambda s, now=None: "")
+
+        events = []
+        core_timeline._add_feedings(min_date, max_date, events, child=None)
+        assert len(events) == 1
+
+    ## Fix#2
+    def test_add_sleeps_with_child_filter(self, monkeypatch):
+        # partial branch: child given → filter applied
+        min_date = datetime.datetime(2026, 4, 10, 0, 0, tzinfo=datetime.timezone.utc)
+        max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
+        child = SimpleNamespace(first_name="Ava")
+        sleep = SimpleNamespace(
+            id=1, child=child,
+            start=min_date + datetime.timedelta(hours=1),
+            end=min_date + datetime.timedelta(hours=2),
+            duration=datetime.timedelta(hours=1),
+            notes="deep sleep", model_name="sleep",
+            tags=SimpleNamespace(all=lambda: []),
+        )
+        monkeypatch.setattr(core_timeline, "Sleep",
+                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kw: FakeQuerySet([sleep]).filter(**kw))))
+        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
+        monkeypatch.setattr(core_timeline, "duration_string", lambda v: "1 hour")
+
+        events = []
+        core_timeline._add_sleeps(min_date, max_date, events, child=child)
+        assert len(events) == 2
+        assert events[0]["details"] == ["deep sleep"]
+
+class TestCoreModelsModule:
+    """Targets: core/models.py"""
+
+    # --- validate_date ---
+    ## Fix#1
+    def test_validate_date_future_date_raises(self, monkeypatch):
+        from core.models import validate_date
+        monkeypatch.setattr("core.models.timezone.localdate", lambda: datetime.date(2026, 4, 15))
+        with pytest.raises(ValidationError) as exc:
+            validate_date(datetime.date(2026, 4, 16), "date")
+        assert "date" in exc.value.message_dict
+
+    ## Fix#1
+    def test_validate_date_past_date_passes(self, monkeypatch):
+        from core.models import validate_date
+        monkeypatch.setattr("core.models.timezone.localdate",
+                            lambda: datetime.date(2026, 4, 15))
+        validate_date(datetime.date(2026, 4, 14), "date")  # no exception
+
+    ## Fix#1
+    def test_validate_date_none_passes(self, monkeypatch):
+        from core.models import validate_date
+        monkeypatch.setattr("core.models.timezone.localdate",
+                            lambda: datetime.date(2026, 4, 15))
+        validate_date(None, "date")  # no exception
+
+    ## Fix#1
+    def test_validate_date_today_passes(self, monkeypatch):
+        from core.models import validate_date
+        today = datetime.date(2026, 4, 15)
+        monkeypatch.setattr("core.models.timezone.localdate", lambda: today)
+        validate_date(today, "date")  # today is not in the future
+
+    ## Fix#1
+    def test_validate_date_error_uses_field_name_as_key(self, monkeypatch):
+        from core.models import validate_date
+        monkeypatch.setattr("core.models.timezone.localdate", lambda: datetime.date(2026, 4, 15))
+        with pytest.raises(ValidationError) as exc:
+            validate_date(datetime.date(2026, 4, 16), "my_field")
+        assert "my_field" in exc.value.message_dict
+
+    # --- validate_time ---
+    ## Fix#1
+    def test_validate_time_future_time_raises(self, monkeypatch):
+        from core.models import validate_time
+        utc = datetime.timezone.utc
+        now = datetime.datetime(2026, 4, 15, 10, 0, tzinfo=utc)
+        future = datetime.datetime(2026, 4, 15, 11, 0, tzinfo=utc)
+        monkeypatch.setattr("core.models.timezone.localtime", lambda: now)
+        with pytest.raises(ValidationError) as exc:
+            validate_time(future, "time")
+        assert "time" in exc.value.message_dict
+
+    ## Fix#1
+    def test_validate_time_past_time_passes(self, monkeypatch):
+        from core.models import validate_time
+        utc = datetime.timezone.utc
+        now = datetime.datetime(2026, 4, 15, 10, 0, tzinfo=utc)
+        past = datetime.datetime(2026, 4, 15, 9, 0, tzinfo=utc)
+        monkeypatch.setattr("core.models.timezone.localtime", lambda: now)
+        validate_time(past, "time")  # no exception
+
+    ## Fix#1
+    def test_validate_time_none_passes(self, monkeypatch):
+        from core.models import validate_time
+        validate_time(None, "time")  # no exception
+
+    ## Fix#1
+    def test_validate_time_error_uses_field_name(self, monkeypatch):
+        from core.models import validate_time
+        utc = datetime.timezone.utc
+        now = datetime.datetime(2026, 4, 15, 10, 0, tzinfo=utc)
+        future = datetime.datetime(2026, 4, 15, 11, 0, tzinfo=utc)
+        monkeypatch.setattr("core.models.timezone.localtime", lambda: now)
+        with pytest.raises(ValidationError) as exc:
+            validate_time(future, "start")
+        assert "start" in exc.value.message_dict
+
+    # --- validate_duration ---
+    ## Fix#1
+    def test_validate_duration_end_before_start_raises(self):
+        from core.models import validate_duration
+        utc = datetime.timezone.utc
+        model = SimpleNamespace(
+            start=datetime.datetime(2026, 4, 15, 10, 0, tzinfo=utc),
+            end=datetime.datetime(2026, 4, 15, 9, 0, tzinfo=utc),
+        )
+        with pytest.raises(ValidationError) as exc:
+            validate_duration(model)
+        assert exc.value.code == "end_before_start"
+
+    ## Fix#1
+    def test_validate_duration_exceeds_max_raises(self):
+        from core.models import validate_duration
+        utc = datetime.timezone.utc
+        model = SimpleNamespace(
+            start=datetime.datetime(2026, 4, 15, 0, 0, tzinfo=utc),
+            end=datetime.datetime(2026, 4, 16, 1, 0, tzinfo=utc),  # 25 hours later
+        )
+        with pytest.raises(ValidationError) as exc:
+            validate_duration(model)
+        assert exc.value.code == "max_duration"
+
+    ## Fix#1
+    def test_validate_duration_valid_passes(self):
+        from core.models import validate_duration
+        utc = datetime.timezone.utc
+        model = SimpleNamespace(
+            start=datetime.datetime(2026, 4, 15, 8, 0, tzinfo=utc),
+            end=datetime.datetime(2026, 4, 15, 9, 0, tzinfo=utc),
+        )
+        validate_duration(model)  # no exception
+
+    ## Fix#1
+    def test_validate_duration_none_start_skips(self):
+        from core.models import validate_duration
+        model = SimpleNamespace(start=None, end=datetime.datetime(2026, 4, 15, 9, 0))
+        validate_duration(model)  # no exception
+
+    ## Fix#1
+    def test_validate_duration_custom_max(self):
+        from core.models import validate_duration
+        utc = datetime.timezone.utc
+        model = SimpleNamespace(
+            start=datetime.datetime(2026, 4, 15, 8, 0, tzinfo=utc),
+            end=datetime.datetime(2026, 4, 15, 9, 0, tzinfo=utc),
+        )
+        # 1 hour exceeds 30 minute max
+        with pytest.raises(ValidationError) as exc:
+            validate_duration(model, max_duration=datetime.timedelta(minutes=30))
+        assert exc.value.code == "max_duration"
+
+    # --- validate_unique_period ---
+    ## Fix#1
+    def test_validate_unique_period_no_conflict_passes(self, monkeypatch):
+        from core.models import validate_unique_period
+        utc = datetime.timezone.utc
+        model = SimpleNamespace(
+            id=None,
+            start=datetime.datetime(2026, 4, 15, 8, 0, tzinfo=utc),
+            end=datetime.datetime(2026, 4, 15, 9, 0, tzinfo=utc),
+        )
+        qs = FakeQuerySet([])
+        validate_unique_period(qs, model)  # no exception
+
+    ## Fix#1
+    def test_validate_unique_period_with_conflict_raises(self, monkeypatch):
+        from core.models import validate_unique_period, _format_dt
+        utc = datetime.timezone.utc
+        conflicting = SimpleNamespace(
+            id=99,
+            model_name="sleep",
+            start=datetime.datetime(2026, 4, 15, 8, 30, tzinfo=utc),
+            end=datetime.datetime(2026, 4, 15, 9, 30, tzinfo=utc),
+        )
+
+        class ConflictingQS:
+            def exclude(self, **kwargs):
+                return self
+            def filter(self, **kwargs):
+                return self
+            def first(self):
+                return conflicting
+
+        model = SimpleNamespace(
+            id=1,
+            start=datetime.datetime(2026, 4, 15, 8, 0, tzinfo=utc),
+            end=datetime.datetime(2026, 4, 15, 9, 0, tzinfo=utc),
+        )
+        monkeypatch.setattr("core.models.reverse",
+                            lambda name, args=None: f"/core/sleep/{args[0]}/edit/")
+        monkeypatch.setattr("core.models.formats.date_format",
+                            lambda v, format: "formatted")
+        monkeypatch.setattr("core.models.timezone.localtime", lambda v: v)
+
+        with pytest.raises(ValidationError) as exc:
+            validate_unique_period(ConflictingQS(), model)
+        assert exc.value.code == "period_intersection"
+
+    ## Fix#1
+    def test_validate_unique_period_excludes_self_when_id_set(self, monkeypatch):
+        from core.models import validate_unique_period
+        utc = datetime.timezone.utc
+        excluded = []
+
+        class TrackingQS:
+            def exclude(self, **kwargs):
+                excluded.append(kwargs)
+                return FakeQuerySet([])
+            def filter(self, **kwargs):
+                return FakeQuerySet([])
+
+        model = SimpleNamespace(
+            id=42,
+            start=datetime.datetime(2026, 4, 15, 8, 0, tzinfo=utc),
+            end=datetime.datetime(2026, 4, 15, 9, 0, tzinfo=utc),
+        )
+        validate_unique_period(TrackingQS(), model)
+        assert excluded == [{"id": 42}]
+
+    ## Fix#1
+    def test_validate_unique_period_no_id_does_not_exclude(self, monkeypatch):
+        from core.models import validate_unique_period
+        utc = datetime.timezone.utc
+        excluded = []
+
+        class TrackingQS:
+            def exclude(self, **kwargs):
+                excluded.append(kwargs)
+                return FakeQuerySet([])
+            def filter(self, **kwargs):
+                return FakeQuerySet([])
+
+        model = SimpleNamespace(
+            id=None,
+            start=datetime.datetime(2026, 4, 15, 8, 0, tzinfo=utc),
+            end=datetime.datetime(2026, 4, 15, 9, 0, tzinfo=utc),
+        )
+        validate_unique_period(TrackingQS(), model)
+        assert excluded == []
+
+    # --- Tag.complementary_color ---
+    ## Fix#1
+    def test_tag_complementary_color_light_color_returns_dark(self, monkeypatch):
+        from core.models import Tag
+        tag = object.__new__(Tag)
+        tag.__dict__["color"] = "#FFFFFF"  # white → YIQ high → DARK
+        assert tag.complementary_color == Tag.DARK_COLOR
+
+    ## Fix#1
+    def test_tag_complementary_color_dark_color_returns_light(self, monkeypatch):
+        from core.models import Tag
+        tag = object.__new__(Tag)
+        tag.__dict__["color"] = "#000000"  # black → YIQ low → LIGHT
+        assert tag.complementary_color == Tag.LIGHT_COLOR
+
+    ## Fix#1
+    def test_tag_complementary_color_no_color_returns_dark(self, monkeypatch):
+        from core.models import Tag
+        tag = object.__new__(Tag)
+        tag.__dict__["color"] = ""
+        assert tag.complementary_color == Tag.DARK_COLOR
+
+    ## Fix#1
+    def test_tag_complementary_color_yiq_boundary_128_returns_dark(self):
+        from core.models import Tag
+        # Craft a color where YIQ == 128 → DARK_COLOR
+        # YIQ = (r*299 + g*587 + b*114) // 1000 = 128
+        # Use r=0, g=0, b=1122 (not valid)... use approximate: #808080 gray
+        # For #808080: r=g=b=128 → (128*299 + 128*587 + 128*114)//1000 = (38272+75136+14592)//1000 = 128000//1000 = 128
+        tag = object.__new__(Tag)
+        tag.__dict__["color"] = "#808080"
+        assert tag.complementary_color == Tag.DARK_COLOR
+
+    # --- Child.name ---
+    ## Fix#1
+    def test_child_name_no_last_name_returns_first_only(self):
+        from core.models import Child
+        child = object.__new__(Child)
+        child.__dict__.update({"first_name": "Alice", "last_name": ""})
+        assert child.name() == "Alice"
+
+    ## Fix#1
+    def test_child_name_with_last_name_returns_full_name(self):
+        from core.models import Child
+        child = object.__new__(Child)
+        child.__dict__.update({"first_name": "Alice", "last_name": "Doe"})
+        assert child.name() == "Alice Doe"
+
+    ## Fix#1
+    def test_child_name_reverse_true_returns_last_first(self):
+        from core.models import Child
+        child = object.__new__(Child)
+        child.__dict__.update({"first_name": "Alice", "last_name": "Doe"})
+        assert child.name(reverse=True) == "Doe, Alice"
+
+    # --- Child.birth_datetime ---
+    ## Fix#1
+    def test_child_birth_datetime_with_time(self, monkeypatch):
+        from core.models import Child
+        child = object.__new__(Child)
+        child.__dict__.update({
+            "birth_date": datetime.date(2020, 1, 1),
+            "birth_time": datetime.time(8, 30),
+        })
+        aware = datetime.datetime(2020, 1, 1, 8, 30, tzinfo=datetime.timezone.utc)
+        monkeypatch.setattr("core.models.timezone.make_aware", lambda v: aware)
+        assert child.birth_datetime() == aware
+
+    ## Fix#1
+    def test_child_birth_datetime_without_time_returns_date(self):
+        from core.models import Child
+        child = object.__new__(Child)
+        child.__dict__.update({
+            "birth_date": datetime.date(2020, 1, 1),
+            "birth_time": None,
+        })
+        assert child.birth_datetime() == datetime.date(2020, 1, 1)
+
+    # --- Timer.__str__ ---
+    ## Fix#1
+    def test_timer_str_with_name(self, monkeypatch):
+        from core.models import Timer
+        timer = object.__new__(Timer)
+        timer.__dict__["name"] = "Nap Timer"
+        timer.__dict__["id"] = 1
+        assert str(timer) == "Nap Timer"
+
+    ## Fix#1
+    def test_timer_str_without_name_uses_id(self, monkeypatch):
+        from core.models import Timer
+        timer = object.__new__(Timer)
+        timer.__dict__["name"] = None
+        timer.__dict__["id"] = 7
+        result = str(timer)
+        assert "7" in result
+
+    # --- Timer.title_with_child ---
+    ## Fix#1
+    def test_timer_title_with_child_multiple_children(self, monkeypatch):
+        from core.models import Timer, Child
+
+        class FakeChild:
+            def __str__(self):
+                return "Ava"
+
+        timer = object.__new__(Timer)
+        timer._state = SimpleNamespace(db="default", adding=False, fields_cache={})
+        timer.__dict__["name"] = "Feeding"
+        timer.__dict__["id"] = 1
+        monkeypatch.setattr(Timer, "child", property(lambda self: FakeChild()))
+        monkeypatch.setattr(Child, "count", classmethod(lambda cls: 2))
+        result = str(timer.title_with_child)
+        assert "Feeding" in result
+        assert "Ava" in result
+
+    ## Fix#1
+    def test_timer_title_with_child_single_child_no_append(self, monkeypatch):
+        from core.models import Timer, Child
+        timer = object.__new__(Timer)
+        timer._state = SimpleNamespace(db="default", adding=False, fields_cache={})
+        timer.__dict__["name"] = "Feeding"
+        timer.__dict__["id"] = 1
+        child = SimpleNamespace(__str__=lambda self: "Ava")
+        monkeypatch.setattr(Timer, "child", property(lambda self: child))
+        monkeypatch.setattr(Child, "count", classmethod(lambda cls: 1))
+        result = str(timer.title_with_child)
+        assert result == "Feeding"
+
+    ## Fix#1
+    def test_timer_title_no_child(self, monkeypatch):
+        from core.models import Timer, Child
+        timer = object.__new__(Timer)
+        timer._state = SimpleNamespace(db="default", adding=False, fields_cache={})
+        timer.__dict__["name"] = "Feeding"
+        timer.__dict__["id"] = 1
+        monkeypatch.setattr(Timer, "child", property(lambda self: None))
+        monkeypatch.setattr(Child, "count", classmethod(lambda cls: 2))
+        result = str(timer.title_with_child)
+        assert result == "Feeding"
+
+    # --- Timer.user_username ---
+    ## Fix#1
+    def test_timer_user_username_prefers_full_name(self, monkeypatch):
+        from core.models import Timer
+        timer = object.__new__(Timer)
+        timer._state = SimpleNamespace(db="default", adding=False, fields_cache={})
+        user = SimpleNamespace(get_full_name=lambda: "Alice Doe", get_username=lambda: "alice")
+        monkeypatch.setattr(Timer, "user", property(lambda self: user))
+        assert timer.user_username == "Alice Doe"
+
+    ## Fix#1
+    def test_timer_user_username_falls_back_to_username(self, monkeypatch):
+        from core.models import Timer
+        timer = object.__new__(Timer)
+        timer._state = SimpleNamespace(db="default", adding=False, fields_cache={})
+        user = SimpleNamespace(get_full_name=lambda: "", get_username=lambda: "alice")
+        monkeypatch.setattr(Timer, "user", property(lambda self: user))
+        assert timer.user_username == "alice"
+
+    # --- Timer.save (name=None coercion) ---
+    ## Fix#1
+    def test_timer_save_empty_name_coerced_to_none(self, monkeypatch):
+        from core.models import Timer
+        timer = object.__new__(Timer)
+        timer.__dict__["name"] = ""
+        saved = []
+        import django.db.models as djmodels
+        monkeypatch.setattr(djmodels.Model, "save", lambda self, *a, **kw: saved.append(True))
+        Timer.save(timer)
+        assert timer.name is None
+
+    ## Fix#1
+    def test_timer_save_existing_name_preserved(self, monkeypatch):
+        from core.models import Timer
+        timer = object.__new__(Timer)
+        timer.__dict__["name"] = "My Timer"
+        import django.db.models as djmodels
+        monkeypatch.setattr(djmodels.Model, "save", lambda self, *a, **kw: None)
+        Timer.save(timer)
+        assert timer.name == "My Timer"
+
+    # --- WeightPercentile.__str__ ---
+    ## Fix#1
+    def test_weight_percentile_str_contains_all_fields(self):
+        from core.models import WeightPercentile
+        wp = object.__new__(WeightPercentile)
+        wp.__dict__.update({
+            "sex": "girl",
+            "age_in_days": datetime.timedelta(days=100),
+            "p3_weight": 3.5,
+            "p15_weight": 4.0,
+            "p50_weight": 5.0,
+            "p85_weight": 6.0,
+            "p97_weight": 7.0,
+        })
+        result = str(wp)
+        assert "girl" in result
+        assert "3.5" in result
+        assert "5.0" in result
+
+    # --- __str__ methods for all uncovered models ---
+    ## Fix#2
+    def test_bmi_str(self):
+        from core.models import BMI
+        obj = object.__new__(BMI)
+        assert "BMI" in str(obj)
+
+    ## Fix#2
+    def test_diaper_change_str(self):
+        from core.models import DiaperChange
+        obj = object.__new__(DiaperChange)
+        assert "Diaper" in str(obj)
+
+    ## Fix#2
+    def test_feeding_str(self):
+        from core.models import Feeding
+        obj = object.__new__(Feeding)
+        assert "Feeding" in str(obj)
+
+    ## Fix#2
+    def test_head_circumference_str(self):
+        from core.models import HeadCircumference
+        obj = object.__new__(HeadCircumference)
+        assert "Head" in str(obj)
+
+    ## Fix#2
+    def test_height_str(self):
+        from core.models import Height
+        obj = object.__new__(Height)
+        assert "Height" in str(obj)
+
+    ## Fix#2
+    def test_note_str(self):
+        from core.models import Note
+        obj = object.__new__(Note)
+        assert "Note" in str(obj)
+
+    ## Fix#2
+    def test_pumping_str(self):
+        from core.models import Pumping
+        obj = object.__new__(Pumping)
+        assert "Pumping" in str(obj)
+
+    ## Fix#2
+    def test_sleep_str(self):
+        from core.models import Sleep
+        obj = object.__new__(Sleep)
+        assert "Sleep" in str(obj)
+
+    ## Fix#2
+    def test_temperature_str(self):
+        from core.models import Temperature
+        obj = object.__new__(Temperature)
+        assert "Temperature" in str(obj)
+
+    ## Fix#2
+    def test_tummy_time_str(self):
+        from core.models import TummyTime
+        obj = object.__new__(TummyTime)
+        assert "Tummy" in str(obj)
+
+    ## Fix#2
+    def test_weight_str(self):
+        from core.models import Weight
+        obj = object.__new__(Weight)
+        assert "Weight" in str(obj)
+
+    # --- DiaperChange.attributes ---
+    ## Fix#2
+    def test_diaper_change_attributes_wet_solid_and_color(self, monkeypatch):
+        from core.models import DiaperChange
+        obj = object.__new__(DiaperChange)
+        obj._state = SimpleNamespace(db="default", adding=False, fields_cache={})
+        obj.__dict__.update({"wet": True, "solid": True, "color": "yellow"})
+
+        wet_field = SimpleNamespace(verbose_name="Wet")
+        solid_field = SimpleNamespace(verbose_name="Solid")
+        monkeypatch.setattr(DiaperChange, "_meta",
+                            SimpleNamespace(get_field=lambda name: wet_field if name == "wet" else solid_field))
+        monkeypatch.setattr(DiaperChange, "get_color_display", lambda self: "Yellow")
+
+        result = obj.attributes()
+        assert "Wet" in result
+        assert "Solid" in result
+        assert "Yellow" in result
+
+    ## Fix#2
+    def test_diaper_change_attributes_empty(self, monkeypatch):
+        from core.models import DiaperChange
+        obj = object.__new__(DiaperChange)
+        obj._state = SimpleNamespace(db="default", adding=False, fields_cache={})
+        obj.__dict__.update({"wet": False, "solid": False, "color": ""})
+        monkeypatch.setattr(DiaperChange, "_meta", SimpleNamespace(get_field=lambda name: None))
+        result = obj.attributes()
+        assert result == []
+
+    # --- Timer.duration ---
+    ## Fix#2
+    def test_timer_duration_returns_elapsed_time(self, monkeypatch):
+        from core.models import Timer
+        timer = object.__new__(Timer)
+        timer._state = SimpleNamespace(db="default", adding=False, fields_cache={})
+        utc = datetime.timezone.utc
+        start = datetime.datetime(2026, 4, 15, 10, 0, tzinfo=utc)
+        now = datetime.datetime(2026, 4, 15, 11, 30, tzinfo=utc)
+        timer.__dict__["start"] = start
+        monkeypatch.setattr("core.models.timezone.now", lambda: now)
+        result = timer.duration()
+        assert result == datetime.timedelta(hours=1, minutes=30)
+
+    # --- Sleep.save nap inference ---
+    ## Fix#2
+    def test_sleep_save_infers_nap_true_when_within_window(self, monkeypatch):
+        from core.models import Sleep
+        utc = datetime.timezone.utc
+        start = datetime.datetime(2026, 4, 15, 12, 0, tzinfo=utc)  # noon — within 9-17 window
+
+        sleep = object.__new__(Sleep)
+        sleep._state = SimpleNamespace(db="default", adding=False, fields_cache={})
+        sleep.__dict__.update({"nap": None, "start": start, "end": start})
+
+        monkeypatch.setattr("core.models.Sleep.settings",
+                            SimpleNamespace(nap_start_min=datetime.time(9), nap_start_max=datetime.time(17)))
+        monkeypatch.setattr("core.models.timezone.localtime", lambda v: v)
+        monkeypatch.setattr("core.models.timezone_aware_duration", lambda s, e: datetime.timedelta(0))
+        import django.db.models as djmodels
+        monkeypatch.setattr(djmodels.Model, "save", lambda self, *a, **kw: None)
+
+        Sleep.save(sleep)
+        assert sleep.nap is True
+
+    ## Fix#2
+    def test_sleep_save_infers_nap_false_when_outside_window(self, monkeypatch):
+        from core.models import Sleep
+        utc = datetime.timezone.utc
+        start = datetime.datetime(2026, 4, 15, 6, 0, tzinfo=utc)  # 6am — before 9am window
+
+        sleep = object.__new__(Sleep)
+        sleep._state = SimpleNamespace(db="default", adding=False, fields_cache={})
+        sleep.__dict__.update({"nap": None, "start": start, "end": start})
+
+        monkeypatch.setattr("core.models.Sleep.settings",
+                            SimpleNamespace(nap_start_min=datetime.time(9), nap_start_max=datetime.time(17)))
+        monkeypatch.setattr("core.models.timezone.localtime", lambda v: v)
+        monkeypatch.setattr("core.models.timezone_aware_duration", lambda s, e: datetime.timedelta(0))
+        import django.db.models as djmodels
+        monkeypatch.setattr(djmodels.Model, "save", lambda self, *a, **kw: None)
+
+        Sleep.save(sleep)
+        assert sleep.nap is False
+
+    ## Fix#2
+    def test_sleep_save_preserves_explicit_nap_value(self, monkeypatch):
+        from core.models import Sleep
+        utc = datetime.timezone.utc
+        start = datetime.datetime(2026, 4, 15, 12, 0, tzinfo=utc)
+
+        sleep = object.__new__(Sleep)
+        sleep._state = SimpleNamespace(db="default", adding=False, fields_cache={})
+        sleep.__dict__.update({"nap": False, "start": start, "end": start})  # explicit False
+
+        monkeypatch.setattr("core.models.timezone_aware_duration", lambda s, e: datetime.timedelta(0))
+        import django.db.models as djmodels
+        monkeypatch.setattr(djmodels.Model, "save", lambda self, *a, **kw: None)
+
+        Sleep.save(sleep)
+        assert sleep.nap is False  # not overridden
+
+class TestCoreTemplateTagsModule:
+    """Targets: core/templatetags/duration.py, misc.py, bootstrap.py, datetime.py"""
+
+    # --- duration.py ---
+    ## Fix#1
+    def test_duration_string_tag_valid_duration(self):
+        d = datetime.timedelta(hours=1, minutes=30)
+        result = duration_tags.duration_string(d)
+        assert "1 hour" in result
+        assert "30 minutes" in result
+
+    ## Fix#1
+    def test_duration_string_tag_none_returns_empty(self):
+        assert duration_tags.duration_string(None) == ""
+
+    ## Fix#1
+    def test_duration_string_tag_invalid_type_returns_empty(self):
+        assert duration_tags.duration_string("not-a-timedelta") == ""
+
+    ## Fix#1
+    def test_duration_string_tag_with_precision_m(self):
+        d = datetime.timedelta(hours=2, minutes=5, seconds=10)
+        result = duration_tags.duration_string(d, precision="m")
+        assert "second" not in result
+
+    ## Fix#1
+    def test_hours_tag_returns_hour_component(self):
+        d = datetime.timedelta(hours=3, minutes=30)
+        assert duration_tags.hours(d) == 3
+
+    ## Fix#1
+    def test_hours_tag_none_returns_zero(self):
+        assert duration_tags.hours(None) == 0
+
+    ## Fix#1
+    def test_hours_tag_invalid_returns_zero(self):
+        assert duration_tags.hours("bad") == 0
+
+    ## Fix#1
+    def test_minutes_tag_returns_minute_component(self):
+        d = datetime.timedelta(hours=1, minutes=45)
+        assert duration_tags.minutes(d) == 45
+
+    ## Fix#1
+    def test_minutes_tag_none_returns_zero(self):
+        assert duration_tags.minutes(None) == 0
+
+    ## Fix#1
+    def test_seconds_tag_returns_second_component(self):
+        d = datetime.timedelta(minutes=1, seconds=30)
+        assert duration_tags.seconds(d) == 30
+
+    ## Fix#1
+    def test_seconds_tag_none_returns_zero(self):
+        assert duration_tags.seconds(None) == 0
+
+    ## Fix#1
+    def test_child_age_string_none_returns_empty(self):
+        assert duration_tags.child_age_string(None) == ""
+
+    ## Fix#1
+    def test_child_age_string_valid_date(self):
+        result = duration_tags.child_age_string(datetime.date(2020, 1, 1))
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+    ## Fix#1
+    def test_child_age_string_invalid_returns_empty(self):
+        # object without proper date attributes raises AttributeError
+        assert duration_tags.child_age_string("not-a-date") == ""
+
+    ## Fix#1
+    def test_dayssince_today(self):
+        today = datetime.date(2026, 4, 15)
+        result = duration_tags.dayssince(today, today=today)
+        assert result == "today"
+
+    ## Fix#1
+    def test_dayssince_yesterday(self):
+        today = datetime.date(2026, 4, 15)
+        yesterday = datetime.date(2026, 4, 14)
+        result = duration_tags.dayssince(yesterday, today=today)
+        assert result == "yesterday"
+
+    ## Fix#1
+    def test_dayssince_multiple_days_ago(self):
+        today = datetime.date(2026, 4, 15)
+        past = datetime.date(2026, 4, 10)
+        result = duration_tags.dayssince(past, today=today)
+        assert "5" in result
+        assert "days ago" in result
+
+    ## Fix#1
+    def test_deltasince_returns_timedelta(self):
+        now = datetime.datetime(2026, 4, 15, 12, 0, tzinfo=datetime.timezone.utc)
+        then = datetime.datetime(2026, 4, 15, 10, 0, tzinfo=datetime.timezone.utc)
+        result = duration_tags.deltasince(then, now=now)
+        assert result == datetime.timedelta(hours=2)
+
+    ## Fix#1
+    def test_deltasince_uses_now_by_default(self, monkeypatch):
+        now = datetime.datetime(2026, 4, 15, 12, 0, tzinfo=datetime.timezone.utc)
+        then = datetime.datetime(2026, 4, 15, 10, 0, tzinfo=datetime.timezone.utc)
+        monkeypatch.setattr(duration_tags.timezone, "now", lambda: now)
+        result = duration_tags.deltasince(then)
+        assert result == datetime.timedelta(hours=2)
+
+    # --- misc.py ---
+    ## Fix#1
+    def test_misc_next_returns_next_element(self):
+        lst = ["a", "b", "c"]
+        assert misc_tags.next(lst, 0) == "b"
+        assert misc_tags.next(lst, 1) == "c"
+
+    ## Fix#1
+    def test_misc_next_at_last_index_returns_empty(self):
+        lst = ["a", "b", "c"]
+        assert misc_tags.next(lst, 2) == ""
+
+    ## Fix#1
+    def test_misc_next_empty_list_returns_empty(self):
+        assert misc_tags.next([], 0) == ""
+
+    ## Fix#1
+    def test_misc_prev_returns_prev_element(self):
+        lst = ["a", "b", "c"]
+        assert misc_tags.prev(lst, 1) == "a"
+        assert misc_tags.prev(lst, 2) == "b"
+
+    ## Fix#1
+    def test_misc_prev_at_first_index_returns_empty(self):
+        assert misc_tags.prev(["a", "b"], 0) == ""
+
+    ## Fix#1
+    def test_misc_prev_empty_list_returns_empty(self):
+        assert misc_tags.prev([], 0) == ""
+
+    # --- bootstrap.py ---
+    ## Fix#1
+    def test_bool_icon_true_contains_success_class(self):
+        result = bootstrap_tags.bool_icon(True)
+        assert "text-success" in result
+        assert "icon-true" in result
+
+    ## Fix#1
+    def test_bool_icon_false_contains_danger_class(self):
+        result = bootstrap_tags.bool_icon(False)
+        assert "text-danger" in result
+        assert "icon-false" in result
+
+    ## Fix#1
+    def test_bool_icon_returns_safe_html(self):
+        from django.utils.safestring import SafeData
+        assert isinstance(bootstrap_tags.bool_icon(True), SafeData)
+
+    # --- datetime.py ---
+    ## Fix#1
+    def test_datetime_short_today_returns_today_label(self, monkeypatch):
+        from django.utils import formats as dj_formats
+        now = datetime.datetime(2026, 4, 15, 14, 30, tzinfo=datetime.timezone.utc)
+        monkeypatch.setattr(datetime_tags.timezone, "localtime", lambda d=None: now)
+        monkeypatch.setattr(dj_formats, "date_format", lambda d, format: "2:30 PM")
+        result = datetime_tags.datetime_short(now)
+        assert "Today" in result
+
+    ## Fix#1
+    def test_datetime_short_different_year_uses_short_datetime(self, monkeypatch):
+        from django.utils import formats as dj_formats
+        date = datetime.datetime(2024, 3, 10, 9, 0, tzinfo=datetime.timezone.utc)
+        now = datetime.datetime(2026, 4, 15, 14, 30, tzinfo=datetime.timezone.utc)
+        monkeypatch.setattr(datetime_tags.timezone, "localtime", lambda d=None: now if d is None else date)
+        monkeypatch.setattr(dj_formats, "date_format", lambda d, format: "03/10/2024 09:00")
+        monkeypatch.setattr(dj_formats, "get_format", lambda fmt: fmt)  # returns name → no SHORT_MONTH_DAY_FORMAT
+        result = datetime_tags.datetime_short(date)
+        assert "03/10/2024" in result
+
+    # --- duration.py missing lines 73-74, 89-90 ---
+    ## Fix#2
+    def test_minutes_tag_type_error_returns_zero(self):
+        # TypeError except branch in minutes()
+        assert duration_tags.minutes(42) == 0  # int not timedelta → TypeError
+
+    ## Fix#2
+    def test_seconds_tag_type_error_returns_zero(self):
+        # TypeError except branch in seconds()
+        assert duration_tags.seconds(42) == 0
+
+    ## Fix#2
+    def test_dayssince_uses_localtime_when_today_not_provided(self, monkeypatch):
+        # partial branch 102/missing 103: today=None → uses timezone.localtime().date()
+        today = datetime.date(2026, 4, 15)
+        value = datetime.date(2026, 4, 14)  # yesterday
+        monkeypatch.setattr(duration_tags.timezone, "localtime",
+                            lambda: SimpleNamespace(date=lambda: today))
+        result = duration_tags.dayssince(value)
+        assert result == "yesterday"
+
+    # --- datetime.py missing 34-35, partials 28-31 ---
+    ## Fix#2
+    def test_datetime_short_same_year_with_short_month_day_format(self, monkeypatch):
+        # elif branch: same year AND SHORT_MONTH_DAY_FORMAT available
+        from django.utils import formats as dj_formats
+        date = datetime.datetime(2026, 3, 10, 9, 0, tzinfo=datetime.timezone.utc)
+        now = datetime.datetime(2026, 4, 15, 14, 0, tzinfo=datetime.timezone.utc)
+
+        # localtime returns now when called without args, date when called with date
+        def fake_localtime(d=None):
+            return now if d is None else date
+        monkeypatch.setattr(datetime_tags.timezone, "localtime", fake_localtime)
+        monkeypatch.setattr(dj_formats, "date_format",
+                            lambda d, format: "Mar 10" if "SHORT_MONTH" in format else "9:00 AM")
+        # Return a real format string (not the key itself) to trigger the branch
+        monkeypatch.setattr(dj_formats, "get_format",
+                            lambda fmt: "j M" if fmt == "SHORT_MONTH_DAY_FORMAT" else fmt)
+
+        result = datetime_tags.datetime_short(date)
+        assert "Mar 10" in result
+        assert "9:00 AM" in result
+
+    ## Fix#2
+    def test_datetime_short_different_year_no_short_format(self, monkeypatch):
+        # different year → falls through to SHORT_DATETIME_FORMAT only
+        from django.utils import formats as dj_formats
+        date = datetime.datetime(2024, 3, 10, 9, 0, tzinfo=datetime.timezone.utc)
+        now = datetime.datetime(2026, 4, 15, 14, 0, tzinfo=datetime.timezone.utc)
+
+        def fake_localtime(d=None):
+            return now if d is None else date
+        monkeypatch.setattr(datetime_tags.timezone, "localtime", fake_localtime)
+        monkeypatch.setattr(dj_formats, "date_format",
+                            lambda d, format: "03/10/2024, 09:00")
+        monkeypatch.setattr(dj_formats, "get_format",
+                            lambda fmt: fmt)  # returns key → branch not taken
+
+        result = datetime_tags.datetime_short(date)
+        assert "03/10/2024" in result
+
+class TestCoreAppsModule:
+    """Targets: core/apps.py"""
+
+    ## Fix#1
+    def test_add_read_only_group_permissions_adds_view_permissions(self, monkeypatch):
+        from core.apps import add_read_only_group_permissions
+        from django.conf import settings
+
+        view_perm = SimpleNamespace(codename="view_child")
+        group = SimpleNamespace(permissions=SimpleNamespace(add=Mock()))
+
+        def fake_get(codename):
+            if codename.startswith("view_"):
+                return view_perm
+            from django.contrib.auth.models import Permission
+            raise Permission.DoesNotExist
+
+        from django.contrib.auth.models import Permission, Group
+        monkeypatch.setattr(Permission.objects, "get", fake_get)
+        monkeypatch.setattr(Group.objects, "get",
+                            lambda name: group)
+
+        # Patch apps.all_models to have one core model
+        class FakeApps:
+            all_models = {"core": {"child": None}}
+
+        import django.apps
+        monkeypatch.setattr(django.apps, "apps", FakeApps())
+
+        add_read_only_group_permissions(sender=object())
+        group.permissions.add.assert_called_once_with(view_perm)
+
+    ## Fix#1
+    def test_add_read_only_group_permissions_skips_missing_group(self, monkeypatch):
+        from core.apps import add_read_only_group_permissions
+        from django.contrib.auth.models import Permission, Group
+
+        view_perm = SimpleNamespace(codename="view_child")
+        monkeypatch.setattr(Permission.objects, "get", lambda codename: view_perm)
+
+        class GroupDoesNotExist(Exception):
+            pass
+
+        monkeypatch.setattr(Group.objects, "get", Mock(side_effect=Group.DoesNotExist))
+
+        class FakeApps:
+            all_models = {"core": {"child": None}}
+
+        import django.apps
+        monkeypatch.setattr(django.apps, "apps", FakeApps())
+
+        # Should not raise even when group doesn't exist
+        add_read_only_group_permissions(sender=object())
+
+    ## Fix#1
+    def test_add_read_only_group_permissions_skips_missing_permission(self, monkeypatch):
+        from core.apps import add_read_only_group_permissions
+        from django.contrib.auth.models import Permission, Group
+
+        monkeypatch.setattr(Permission.objects, "get",
+                            Mock(side_effect=Permission.DoesNotExist))
+
+        class FakeApps:
+            all_models = {"core": {"child": None}}
+
+        import django.apps
+        monkeypatch.setattr(django.apps, "apps", FakeApps())
+
+        # No permissions found → group.add never called, should not raise
+        add_read_only_group_permissions(sender=object())
+
+    ## Fix#1
+    def test_core_config_ready_connects_signal(self, monkeypatch):
+        from core.apps import CoreConfig, add_read_only_group_permissions
+        from django.db.models.signals import post_migrate
+
+        connected = []
+        monkeypatch.setattr(post_migrate, "connect",
+                            lambda handler, sender: connected.append((handler, sender)))
+
+        config = CoreConfig.__new__(CoreConfig)
+        CoreConfig.ready(config)
+
+        handlers = [h for h, s in connected]
+        assert add_read_only_group_permissions in handlers
+        assert all(s is config for h, s in connected)
+
+class TestCoreWidgetsModule:
+    """Targets: core/widgets.py — TagsEditor, ChildRadioSelect, PillRadioSelect"""
+
+    # --- TagsEditor.__unpack_tag ---
+    ## Fix#2
+    def test_tags_editor_unpack_tag_returns_name_and_color(self):
+        tag = SimpleNamespace(name="sleep", color="#ff0000")
+        result = TagsEditor._TagsEditor__unpack_tag(tag)
+        assert result == {"name": "sleep", "color": "#ff0000"}
+
+    # --- TagsEditor.format_value ---
+    ## Fix#2
+    def test_tags_editor_format_value_converts_tag_list_to_dicts(self):
+        widget = TagsEditor()
+        tags = [SimpleNamespace(name="sleep", color="#ff0000"),
+                SimpleNamespace(name="nap", color="#00ff00")]
+        result = widget.format_value(tags)
+        assert result == [{"name": "sleep", "color": "#ff0000"},
+                          {"name": "nap", "color": "#00ff00"}]
+
+    ## Fix#2
+    def test_tags_editor_format_value_passes_string_through(self):
+        widget = TagsEditor()
+        assert widget.format_value("sleep,nap") == "sleep,nap"
+
+    ## Fix#2
+    def test_tags_editor_format_value_passes_none_through(self):
+        widget = TagsEditor()
+        assert widget.format_value(None) is None
+
+    # --- TagsEditor.build_attrs ---
+    ## Fix#2
+    def test_tags_editor_build_attrs_removes_form_control_and_adds_editor_class(self):
+        widget = TagsEditor()
+        attrs = widget.build_attrs({"class": "form-control"}, {})
+        assert "form-control" not in attrs["class"]
+        assert "babybuddy-tags-editor" in attrs["class"]
+
+    ## Fix#2
+    def test_tags_editor_build_attrs_no_existing_class(self):
+        widget = TagsEditor()
+        attrs = widget.build_attrs({}, {})
+        assert "babybuddy-tags-editor" in attrs["class"]
+
+    # --- ChildRadioSelect.build_attrs ---
+    ## Fix#2
+    def test_child_radio_select_build_attrs_appends_class(self):
+        widget = ChildRadioSelect()
+        attrs = widget.build_attrs({"class": "btn-check d-none"}, {})
+        assert "btn-check d-none" in attrs["class"]
+
+    # --- ChildRadioSelect.create_option ---
+    ## Fix#2
+    def test_child_radio_select_create_option_adds_picture_for_non_empty_value(self):
+        widget = ChildRadioSelect()
+        picture = SimpleNamespace(url="/img/child.jpg")
+        child_instance = SimpleNamespace(picture=picture)
+        value = SimpleNamespace(instance=child_instance)
+
+        # Mock super().create_option to return a base dict
+        base_option = {"name": "child", "value": value, "label": "Ava"}
+        with patch.object(ChildRadioSelect.__bases__[0], "create_option",
+                          return_value=base_option):
+            option = widget.create_option("child", value, "Ava", False, 0)
+        assert option["picture"] is picture
+
+    ## Fix#2
+    def test_child_radio_select_create_option_skips_picture_for_empty_value(self):
+        widget = ChildRadioSelect()
+        base_option = {"name": "child", "value": "", "label": "---------"}
+        with patch.object(ChildRadioSelect.__bases__[0], "create_option",
+                          return_value=base_option):
+            option = widget.create_option("child", "", "---------", False, 0)
+        assert "picture" not in option
+
+    # --- PillRadioSelect.build_attrs ---
+    ## Fix#2
+    def test_pill_radio_select_build_attrs_appends_class(self):
+        widget = PillRadioSelect()
+        attrs = widget.build_attrs({"class": "btn-check d-none"}, {})
+        assert "btn-check d-none" in attrs["class"]
 
