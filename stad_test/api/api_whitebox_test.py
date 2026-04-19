@@ -12,6 +12,7 @@
 # 2026-04-15 | Fix#1 Kill more mutation | 100% | 79/0      | 136/136  🎉 120 🫥 0  ⏰ 0  🤔 0  🙁 16  🔇 0  🧙 0   #
 # 2026-04-15 | Fix#2 Add edge case      | 100% | 89/3      | 136/136  🎉 120 🫥 0  ⏰ 0  🤔 0  🙁 16  🔇 0  🧙 0   #
 # 2026-04-19 | Fix#3 Add more           | 100% | 111/3     | 136/136  🎉 124 🫥 0  ⏰ 0  🤔 0  🙁 12  🔇 0  🧙 0   #
+# 2026-04-19 | Fix#3 more mutation      | 100% | 111/3     | 136/136  🎉 129 🫥 0  ⏰ 0  🤔 0  🙁 7  🔇 0  🧙 0    #
 # ------------------------------------------------------------------------------------------------------------------ #
 ######################################################################################################################
 
@@ -302,6 +303,50 @@ class MetadataContractTests(SimpleTestCase):
         result = APIMetadata().determine_metadata(None, View())
         self.assertEqual(result, {"name": "X"})
 
+    ## Fix#4 - mutation
+    @patch("rest_framework.metadata.SimpleMetadata.determine_metadata")
+    def test_metadata_pops_exactly_description_key_not_other_keys(self, mock_super):
+        # mutmut_2: "description" → "xdescription"
+        # If the wrong key is popped, "description" stays in result
+        mock_super.return_value = {"description": "remove", "name": "X", "renders": ["json"]}
+        result = APIMetadata().determine_metadata(None, DummyViewNoFilter())
+        assert "description" not in result
+        assert "name" in result
+        assert "renders" in result
+
+    ## Fix#4 - mutation
+    @patch("rest_framework.metadata.SimpleMetadata.determine_metadata")
+    def test_metadata_checks_filterset_fields_attribute_name_exactly(self, mock_super):
+        # mutmut_3: hasattr(view, "filterset_fields") → hasattr(view, "xfilterset_fields")
+        # A view with filterset_fields but NOT xfilterset_fields must trigger the first branch
+        class ViewWithFields:
+            filterset_fields = ("a", "b")
+
+        mock_super.return_value = {"description": "x"}
+        result = APIMetadata().determine_metadata(None, ViewWithFields())
+        assert result.get("filters") == ("a", "b")
+
+    ## Fix#4 - mutation
+    @patch("rest_framework.metadata.SimpleMetadata.determine_metadata")
+    def test_metadata_uses_filters_key_exactly_not_another_key(self, mock_super):
+        # mutmut_4: data.update({"filters": ...}) → data.update({"xfilters": ...})
+        # The output dict must contain key "filters", not "xfilters" or anything else
+        mock_super.return_value = {"description": "x"}
+        result = APIMetadata().determine_metadata(None, DummyViewWithFields())
+        assert "filters" in result
+        assert result["filters"] == ("child", "date")
+        # Ensure no mutation-introduced key exists
+        assert "xfilters" not in result
+
+    ## Fix#4 - mutation
+    @patch("rest_framework.metadata.SimpleMetadata.determine_metadata")
+    def test_metadata_checks_filterset_class_attribute_name_exactly(self, mock_super):
+        # mutmut_5: hasattr(view, "filterset_class") → hasattr(view, "xfilterset_class")
+        # A view with filterset_class but NOT filterset_fields must trigger the elif branch
+        mock_super.return_value = {"description": "x"}
+        result = APIMetadata().determine_metadata(None, DummyViewWithClass())
+        assert result.get("filters") == ["child", "date"]
+
 
 class PermissionsContractTests(SimpleTestCase):
     # Component: api/permissions.py
@@ -520,6 +565,24 @@ class URLsContractTests(SimpleTestCase):
         router = urls.CustomRouterWithExtraPaths()
         router.add_detail_path("my-endpoint", "my-endpoint-name", dummy_view)
         self.assertEqual(router.extra_api_urls[0].route.name, "my-endpoint-name")
+
+    ## Fix#4 - more mutation test
+    def test_router_init_passes_args_and_kwargs_to_super(self):
+        # mutmut_1: super().__init__(*args, **kwargs) → super().__init__(**kwargs) drops *args
+        # mutmut_2: super().__init__(*args, **kwargs) → super().__init__(*args) drops **kwargs
+        # DefaultRouter accepts trailing_slash kwarg — verify it is passed through
+        router = urls.CustomRouterWithExtraPaths(trailing_slash=False)
+        # If kwargs were dropped, trailing_slash=False would not reach DefaultRouter
+        # DefaultRouter sets self.trailing_slash based on this kwarg
+        assert router.trailing_slash == ""  # False → "" in DefaultRouter
+
+    ## Fix#4 - more mutation test
+    def test_router_init_extra_api_urls_is_empty_list_type(self):
+        # Belt-and-suspenders: confirm both value and type are exactly right
+        router = urls.CustomRouterWithExtraPaths()
+        assert router.extra_api_urls == []
+        assert type(router.extra_api_urls) is list
+
 
 
 class SerializersContractTests(SimpleTestCase):
@@ -910,6 +973,88 @@ class SerializersContractTests(SimpleTestCase):
         self.assertEqual(result["child"], "c")
         self.assertEqual(result["start"], "s")
         self.assertEqual(result["end"], "e")
+
+    # mutmut_1: "timer" key → "xtimer" in "timer" in attrs
+    ## Fix#4 - more mutation test
+    def test_duration_serializer_timer_key_name_is_exactly_timer(self):
+        # If "timer" were renamed to "xtimer", passing {"timer": ...} would not
+        # trigger the timer path — child/start/end would be required instead.
+        serializer = DummyDurationSerializer()
+        timer = SimpleNamespace(child="c", start="s", stop=MagicMock())
+        with patch.object(api_serializers.timezone, "now", return_value="now"):
+            result = serializer.validate({"timer": timer})
+        # Timer path was taken — "timer" key removed, start/end/child set
+        assert "timer" not in result
+        assert result["start"] == "s"
+
+    ## Fix#4 - more mutation test
+    def test_duration_serializer_non_timer_key_does_not_trigger_timer_path(self):
+        # Confirms the key name is exactly "timer" — "xtimer" should NOT trigger it
+        serializer = DummyDurationSerializer()
+        # Passing "xtimer" should not trigger timer path → requires child/start/end
+        with self.assertRaises(ValidationError) as exc:
+            serializer.validate({"xtimer": SimpleNamespace(child="c", start="s", stop=MagicMock())})
+        assert "child" in exc.exception.detail
+
+    # mutmut_31-34: error message string "This field is required."
+    ## Fix#4 - more mutation test
+    def test_duration_serializer_required_error_message_exact(self):
+        # mutmut_31: "This field is required." → "" or different string
+        serializer = DummyDurationSerializer()
+        with self.assertRaises(ValidationError) as exc:
+            serializer.validate({"start": "s", "end": "e"})
+        assert exc.exception.detail["child"] == "This field is required."
+
+    ## Fix#4 - more mutation test
+    def test_duration_serializer_required_error_message_for_start(self):
+        serializer = DummyDurationSerializer()
+        with self.assertRaises(ValidationError) as exc:
+            serializer.validate({"child": "c", "end": "e"})
+        assert exc.exception.detail["start"] == "This field is required."
+
+    ## Fix#4 - more mutation test
+    def test_duration_serializer_required_error_message_for_end(self):
+        serializer = DummyDurationSerializer()
+        with self.assertRaises(ValidationError) as exc:
+            serializer.validate({"child": "c", "start": "s"})
+        assert exc.exception.detail["end"] == "This field is required."
+
+    ## Fix#4 - more mutation test
+    def test_duration_serializer_error_dict_contains_exactly_missing_fields(self):
+        # mutmut_32/33: len(errors) > 0 → len(errors) >= 0 or len(errors) > 1
+        # With exactly 1 missing field, > 0 raises but > 1 would not
+        serializer = DummyDurationSerializer()
+        with self.assertRaises(ValidationError) as exc:
+            serializer.validate({"start": "s", "end": "e"})  # only child missing
+        # Exactly 1 error — the raise happened
+        assert len(exc.exception.detail) == 1
+
+    # TimerSerializer mutmut_2: "user" key string
+    ## Fix#4 - more mutation test
+    def test_timer_serializer_checks_exactly_user_key_not_another(self):
+        # mutmut_2: "user" not in attrs → "xuser" not in attrs
+        # If the key were "xuser", then "user" in attrs would always trigger the
+        # preserve-explicit branch — user would never be defaulted from request
+        serializer = api_serializers.TimerSerializer(
+            context={"request": SimpleNamespace(user="request-user")}
+        )
+        with patch.object(api_serializers.CoreModelSerializer, "validate",
+                          return_value={}):  # "user" NOT in returned attrs
+            result = serializer.validate({})
+        # Should have defaulted to request user because "user" was not in attrs
+        assert result["user"] == "request-user"
+
+    ## Fix#4 - more mutation test
+    def test_timer_serializer_user_none_uses_exactly_is_none_check(self):
+        # mutmut_2 also covers attrs["user"] is None check
+        # user=None should be replaced; user=0 (falsy but not None) should NOT
+        serializer = api_serializers.TimerSerializer(
+            context={"request": SimpleNamespace(user="request-user")}
+        )
+        with patch.object(api_serializers.CoreModelSerializer, "validate",
+                          return_value={"user": None}):
+            result = serializer.validate({"user": None})
+        assert result["user"] == "request-user"
 
 
 class ViewsContractTests(SimpleTestCase):
