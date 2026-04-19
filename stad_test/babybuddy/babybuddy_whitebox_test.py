@@ -15,6 +15,20 @@
 ##########################################################################################################################
 
 '''
+Coverage
+babybuddy/formats/en/formats.py
+SHORT_MONTH_DAY_FORMAT = "M j"
+This is a Django locale format configuration file. It's not a function or a class — it's a module-level variable assignment that Django loads automatically when it processes locale-specific formats. It gets executed when Django imports the en locale formats module, which only happens during actual HTTP request handling with the right locale active.
+This cannot be covered by whitebox unit tests for the following reasons:
+
+There is no function to call, no branch to exercise, no method to invoke — it's a pure module-level constant
+Django only imports this file when rendering templates or formatting dates/times with the en locale active, which requires a full request/response cycle
+Even if you imported the module directly, coverage would only register the line as "run" if Django's format machinery actually loads it through the locale discovery path, not a direct import
+
+This is the same category as urls.py — declarative configuration with no logic. The line will remain missing in unit test coverage. The only way to cover it is through integration or end-to-end tests that make real HTTP requests with the English locale active.
+'''
+
+'''
 Management commands (389 mutants) — not worth testing in whitebox
 The three commands are fake.py, reset.py, and createuser.py. These are Django management commands invoked via python manage.py <command>. They are heavily interactive/IO-dependent:
 
