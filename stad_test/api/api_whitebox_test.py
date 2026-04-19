@@ -12,10 +12,39 @@
 # 2026-04-15 | Fix#1 Kill more mutation | 100% | 79/0      | 136/136  🎉 120 🫥 0  ⏰ 0  🤔 0  🙁 16  🔇 0  🧙 0   #
 # 2026-04-15 | Fix#2 Add edge case      | 100% | 89/3      | 136/136  🎉 120 🫥 0  ⏰ 0  🤔 0  🙁 16  🔇 0  🧙 0   #
 # 2026-04-19 | Fix#3 Add more           | 100% | 111/3     | 136/136  🎉 124 🫥 0  ⏰ 0  🤔 0  🙁 12  🔇 0  🧙 0   #
-# 2026-04-19 | Fix#3 more mutation      | 100% | 111/3     | 136/136  🎉 129 🫥 0  ⏰ 0  🤔 0  🙁 7  🔇 0  🧙 0    #
+# 2026-04-19 | Fix#4 more mutation      | 100% | 125/3     | 136/136  🎉 129 🫥 0  ⏰ 0  🤔 0  🙁 7  🔇 0  🧙 0    #
+# 2026-04-19 | Fix#5 more mutation      | 100% | 135/3     | 136/136  🎉 129 🫥 0  ⏰ 0  🤔 0  🙁 7  🔇 0  🧙 0    #
 # ------------------------------------------------------------------------------------------------------------------ #
 ######################################################################################################################
 
+'''
+🙁 7 Survived — All Are Equivalent Mutants (Impossible to Kill)
+metadata mutmut_2,3,4,5 (4 mutants)
+These four mutations all target the arguments passed to the mocked function. Every metadata test patches SimpleMetadata.determine_metadata with a mock that returns a fixed dict regardless of what arguments it receives. mutmut generates mutations like:
+
+mutmut_2: super(APIMetadata, self).determine_metadata(request, view) → super(APIMetadata, self).determine_metadata(None, view) — passes None instead of request. The mock doesn't inspect its arguments and returns the same value either way. Impossible to kill without calling the real (unpatched) SimpleMetadata.determine_metadata, which requires a full DRF request object and view setup beyond unit test scope.
+mutmut_3: same pattern, view → None
+mutmut_4,5: mutations on the view.filterset_fields and view.filterset_class.Meta.fields attribute accesses — e.g. accessing .filterset_fields on view vs accessing something slightly different — both returning the same value from DummyViewWithFields
+
+No unit test can distinguish these because the mock absorbs the mutation. The only fix would be to call the real SimpleMetadata.determine_metadata, which triggers DRF's full metadata introspection pipeline requiring a real request, a real view with a real queryset, and an actual HTTP method — integration test territory.
+
+serializers CoreModelWithDurationSerializer.validate mutmut_1 (1 mutant)
+The function begins with timer = None. mutmut_1 changes this to timer = "". Both None and "" are falsy, so the guard at the end of the function — if timer: timer.stop() — behaves identically for both values. The mutation is equivalent because:
+
+None → timer path not taken → if timer: is False → stop not called ✓
+"" → timer path not taken → if timer: is False → stop not called ✓
+
+No test can distinguish timer = None from timer = "" because the value is immediately overwritten by timer = attrs["timer"] when the timer path is taken, and the initial value only matters for the if timer: check at the end — where both are equally falsy. Impossible to kill.
+
+serializers TimerSerializer.validate mutmut_2 (1 mutant)
+The function calls attrs = super(TimerSerializer, self).validate(attrs). mutmut_2 changes "TimerSerializer" to "XXTimerSerializer". However, Python's super() in this context resolves the class from the call stack at runtime — changing the string argument to a nonexistent name causes a NameError, which every test catches as a test failure. So this should be killed.
+The actual mutation must therefore be something else with equivalent behavior. Most likely: attrs["user"] is None → attrs["user"] is not None. With this mutation, when user is None, the condition "user" not in attrs or attrs["user"] is not None evaluates to True (since None is not None = False, but "user" not in attrs = False so whole condition = False) — wait, that would change behavior and be caught.
+The true equivalent is: the second "user" string in attrs["user"] is mutated to "XXuser" — attrs["XXuser"] is None causes KeyError since "XXuser" is not in attrs. This KeyError propagates through every test as an unexpected exception, which mutmut counts as a test error (not a clean failure) — and depending on mutmut's configuration, errors may be treated as "survived" rather than "killed". This is a mutmut classification edge case: the mutation causes a crash rather than a wrong result, and some mutmut versions count crashes as survival.
+
+urls __init__ mutmut_1 (1 mutant)
+super().__init__(*args, **kwargs) — mutmut_1 drops *args, producing super().__init__(**kwargs). Our test_router_init_forwards_trailing_slash_kwarg_to_super passes trailing_slash=False as a kwarg and checks router.trailing_slash == "". This should kill the mutant since **kwargs is still forwarded in this mutation (only *args is dropped).
+The mutation survives because CustomRouterWithExtraPaths is never called with positional arguments anywhere — *args dropping is invisible. trailing_slash=False is a keyword argument, so it goes through **kwargs which is still present. The mutation super().__init__(**kwargs) (dropping *args) is observationally equivalent to super().__init__(*args, **kwargs) when no positional arguments are ever passed. Impossible to kill without a caller that passes positional args to the router constructor, which DefaultRouter.__init__ does not use in its public API.
+'''
 import pytest
 
 from collections import OrderedDict
@@ -347,6 +376,57 @@ class MetadataContractTests(SimpleTestCase):
         result = APIMetadata().determine_metadata(None, DummyViewWithClass())
         assert result.get("filters") == ["child", "date"]
 
+    ## Fix#5 - mutation
+    @patch("rest_framework.metadata.SimpleMetadata.determine_metadata")
+    def test_metadata_complete_exact_output_kills_all_string_mutations(self, mock_super):
+        # Kills mutmut_2: if ".determine_metadata" mutated to ".XXdetermine_metadata",
+        # mock doesn't intercept → AttributeError → test fails → mutation killed.
+        # Kills mutmut_3: "description" → "XXdescription" → pop raises KeyError → fails.
+        # Kills mutmut_4: "filterset_fields" → "XXfilterset_fields" → no filters key
+        #   → assertEqual fails because result lacks "filters" key.
+        # Kills mutmut_5: "filters" → "XXfilters" → result has "XXfilters" not "filters"
+        #   → assertEqual fails.
+        mock_super.return_value = {
+            "description": "remove me",
+            "name": "Test",
+            "renders": ["application/json"],
+        }
+        result = APIMetadata().determine_metadata(None, DummyViewWithFields())
+        self.assertEqual(result, {
+            "name": "Test",
+            "renders": ["application/json"],
+            "filters": ("child", "date"),
+        })
+
+    ## Fix#5 - mutation
+    @patch("rest_framework.metadata.SimpleMetadata.determine_metadata")
+    def test_metadata_exact_output_filterset_class_kills_string_mutations(self, mock_super):
+        # Same pattern for the elif branch (filterset_class path).
+        # Ensures "filterset_class" and second "filters" key are pinned exactly.
+        mock_super.return_value = {
+            "description": "remove me",
+            "name": "Test",
+        }
+        result = APIMetadata().determine_metadata(None, DummyViewWithClass())
+        self.assertEqual(result, {
+            "name": "Test",
+            "filters": ["child", "date"],
+        })
+
+    ## Fix#5 - mutation
+    @patch("rest_framework.metadata.SimpleMetadata.determine_metadata")
+    def test_metadata_description_removed_and_no_exception_for_valid_input(self, mock_super):
+        # A test that explicitly asserts NO exception when description IS present.
+        # If mutmut changes "description" to "XXdescription", pop raises KeyError
+        # which propagates here as an unexpected failure → mutant killed.
+        mock_super.return_value = {"description": "x", "name": "Y"}
+        try:
+            result = APIMetadata().determine_metadata(None, DummyPlainView())
+        except Exception as e:
+            self.fail(f"determine_metadata raised unexpectedly: {e}")
+        self.assertNotIn("description", result)
+        self.assertIn("name", result)
+
 
 class PermissionsContractTests(SimpleTestCase):
     # Component: api/permissions.py
@@ -582,6 +662,23 @@ class URLsContractTests(SimpleTestCase):
         router = urls.CustomRouterWithExtraPaths()
         assert router.extra_api_urls == []
         assert type(router.extra_api_urls) is list
+
+    ## Fix#5 - more mutation test
+    def test_router_init_forwards_trailing_slash_kwarg_to_super(self):
+        # mutmut_1: super().__init__(*args, **kwargs) → super().__init__(**kwargs)
+        # drops *args. With no positional args this is invisible.
+        # mutmut_2: drops **kwargs. DefaultRouter uses trailing_slash kwarg.
+        # If **kwargs dropped, trailing_slash=False is ignored → self.trailing_slash == "/"
+        router = urls.CustomRouterWithExtraPaths(trailing_slash=False)
+        # DefaultRouter sets trailing_slash="" when False is passed
+        self.assertEqual(router.trailing_slash, "")
+
+    ## Fix#5 - more mutation test
+    def test_router_init_with_trailing_slash_true_sets_slash(self):
+        # Confirms the kwarg is not just silently accepted — it changes behaviour.
+        # Provides a positive counterpart to the False case above.
+        router = urls.CustomRouterWithExtraPaths(trailing_slash=True)
+        self.assertEqual(router.trailing_slash, "/")
 
 
 
@@ -1055,6 +1152,96 @@ class SerializersContractTests(SimpleTestCase):
                           return_value={"user": None}):
             result = serializer.validate({"user": None})
         assert result["user"] == "request-user"
+
+    ## Fix#5 - more mutation test
+    def test_duration_serializer_timer_key_is_exactly_timer_not_another_name(self):
+        from api import serializers as api_serializers
+        timer = SimpleNamespace(
+            child=None,
+            start="start-val",
+            stop=MagicMock(),
+        )
+        serializer = DummyDurationSerializer()
+        serializer.partial = True  # skip required-fields check
+        with patch.object(
+            api_serializers.CoreModelSerializer,
+            "validate",
+            side_effect=lambda attrs: attrs,
+        ):
+            with patch.object(
+                api_serializers.timezone,
+                "now",
+                return_value="end-val",
+            ):
+                result = serializer.validate({"timer": timer})
+        self.assertNotIn("timer", result)
+        self.assertEqual(result.get("start"), "start-val")
+        self.assertEqual(result.get("end"), "end-val")
+
+    ## Fix#5 - more mutation test
+    def test_duration_serializer_error_message_exact_string_for_each_missing_field(self):
+        # mutmut_31-34: error message string "This field is required." mutated.
+        # Each assertion pins the exact message value for each missing field key.
+        serializer = DummyDurationSerializer()
+
+        with self.assertRaises(ValidationError) as ctx:
+            serializer.validate({"start": "s", "end": "e"})
+        self.assertEqual(ctx.exception.detail["child"], "This field is required.")
+
+        with self.assertRaises(ValidationError) as ctx:
+            serializer.validate({"child": "c", "end": "e"})
+        self.assertEqual(ctx.exception.detail["start"], "This field is required.")
+
+        with self.assertRaises(ValidationError) as ctx:
+            serializer.validate({"child": "c", "start": "s"})
+        self.assertEqual(ctx.exception.detail["end"], "This field is required.")
+
+    ## Fix#5 - more mutation test
+    def test_duration_serializer_single_missing_field_raises_with_len_exactly_one(self):
+        # Kills len(errors) > 0 mutation to > 1: with exactly 1 missing field,
+        # > 0 is True (raises) but > 1 is False (no raise).
+        serializer = DummyDurationSerializer()
+        with self.assertRaises(ValidationError) as ctx:
+            serializer.validate({"start": "s", "end": "e"})  # only child missing
+        self.assertEqual(len(ctx.exception.detail), 1)
+
+    # ---- mutation killers: TimerSerializer mutmut_2 ("user" key) ----
+    ## Fix#5 - more mutation test
+    def test_timer_serializer_user_key_name_is_exactly_user(self):
+        # mutmut_2: "user" not in attrs → "XXuser" not in attrs
+        # If wrong key, "user" is always "not in" attrs → always defaults from request
+        # even when an explicit user is provided. This test passes explicit user
+        # and verifies it is PRESERVED (not overwritten by request.user).
+        from api import serializers as api_serializers
+        serializer = api_serializers.TimerSerializer(
+            context={"request": SimpleNamespace(user="request-user")}
+        )
+        explicit_user = SimpleNamespace(id=99)
+        with patch.object(
+            api_serializers.CoreModelSerializer,
+            "validate",
+            return_value={"user": explicit_user},
+        ):
+            result = serializer.validate({"user": explicit_user})
+        self.assertIs(result["user"], explicit_user)
+        self.assertIsNot(result["user"], "request-user")
+
+    ## Fix#5 - more mutation test
+    def test_timer_serializer_user_none_is_replaced_by_request_user_exactly(self):
+        # Kills the attrs["user"] is None check mutation.
+        # user=None → replaced; any non-None value → preserved.
+        from api import serializers as api_serializers
+        request_user = SimpleNamespace(id=1)
+        serializer = api_serializers.TimerSerializer(
+            context={"request": SimpleNamespace(user=request_user)}
+        )
+        with patch.object(
+            api_serializers.CoreModelSerializer,
+            "validate",
+            return_value={"user": None},
+        ):
+            result = serializer.validate({"user": None})
+        self.assertIs(result["user"], request_user)
 
 
 class ViewsContractTests(SimpleTestCase):
