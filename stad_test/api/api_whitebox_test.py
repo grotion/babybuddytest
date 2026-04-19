@@ -11,6 +11,7 @@
 # 2026-04-15 | Init test                | 100% | 65/0      | 136/136   🎉 85 🫥 0  ⏰ 25  🤔 0  🙁 13  🔇 0  🧙 0  #
 # 2026-04-15 | Fix#1 Kill more mutation | 100% | 79/0      | 136/136  🎉 120 🫥 0  ⏰ 0  🤔 0  🙁 16  🔇 0  🧙 0   #
 # 2026-04-15 | Fix#2 Add edge case      | 100% | 89/3      | 136/136  🎉 120 🫥 0  ⏰ 0  🤔 0  🙁 16  🔇 0  🧙 0   #
+# 2026-04-19 | Fix#3 Add more           | 100% | 111/3     | 136/136  🎉 124 🫥 0  ⏰ 0  🤔 0  🙁 12  🔇 0  🧙 0   #
 # ------------------------------------------------------------------------------------------------------------------ #
 ######################################################################################################################
 
@@ -155,6 +156,28 @@ class FiltersContractTests(SimpleTestCase):
         self.assertIs(filters.TummyTimeFilter.Meta.model, models.TummyTime)
         for field in ["child", "start", "end"]:
             self.assertIn(field, filters.TummyTimeFilter.Meta.fields)
+
+    ## Fix#3 - Add more
+    def test_timer_filter_fields_are_exactly_sorted(self):
+        # Existing test only uses assertIn for "name" and "user"; this pins the full sorted list.
+        expected = sorted([
+            "child", "end", "end_max", "end_min", "start", "start_max", "start_min", "name", "user"
+        ])
+        self.assertEqual(filters.TimerFilter.Meta.fields, expected)
+
+    ## Fix#3 - Add more
+    def test_time_field_filter_date_label_is_exactly_datetime(self):
+        # Existing test checks field_name and lookup_expr but not the label string.
+        self.assertEqual(filters.TimeFieldFilter.base_filters["date"].label, "DateTime")
+
+    ## Fix#3 - Add more
+    def test_start_end_filter_start_label_is_exactly_start_datetime(self):
+        # Existing test checks field_name and lookup_expr but not labels.
+        self.assertEqual(filters.StartEndFieldFilter.base_filters["start"].label, "Start DateTime")
+
+    ## Fix#3 - Add more
+    def test_start_end_filter_end_label_is_exactly_end_datetime(self):
+        self.assertEqual(filters.StartEndFieldFilter.base_filters["end"].label, "End DateTime")
 
 
 class MetadataContractTests(SimpleTestCase):
@@ -459,6 +482,45 @@ class URLsContractTests(SimpleTestCase):
         router.add_detail_path("b", "b", dummy_view)
         self.assertEqual(len(router.extra_api_urls), 2)
 
+    ## Fix#3 - Add more
+    def test_get_api_root_view_list_name_value_uses_basename(self):
+        # Existing tests only assert the profile/extra key values, not the formatted
+        # list-route name for registered viewsets. Kills mutations on basename= arg.
+        router = urls.CustomRouterWithExtraPaths()
+        router.registry = [("bmi", object(), "bmi")]
+
+        captured = {}
+
+        def fake_as_view(*, api_root_dict):
+            captured["api_root_dict"] = api_root_dict
+            return "root-view"
+
+        with patch.object(router.APIRootView, "as_view", side_effect=fake_as_view):
+            router.get_api_root_view()
+
+        list_route_name = router.routes[0].name  # e.g. "{basename}-list"
+        self.assertEqual(captured["api_root_dict"]["bmi"], list_route_name.format(basename="bmi"))
+
+    ## Fix#3 - Add more
+    def test_urls_property_total_length_is_base_plus_extra(self):
+        # Existing test checks result[0] and pattern presence but not total count.
+        router = urls.CustomRouterWithExtraPaths()
+        router.add_detail_path("profile", "profile", dummy_view)
+        router.add_detail_path("schema", "schema", dummy_view)
+
+        with patch("rest_framework.routers.DefaultRouter.urls", new_callable=PropertyMock) as mock_urls:
+            mock_urls.return_value = ["base1", "base2", "base3"]
+            result = router.urls
+
+        self.assertEqual(len(result), 5)  # 3 base + 2 extra
+
+    ## Fix#3 - Add more
+    def test_add_detail_path_route_name_attribute_matches_reverse_name(self):
+        # Existing test checks extra.route.pattern._route but not extra.route.name.
+        router = urls.CustomRouterWithExtraPaths()
+        router.add_detail_path("my-endpoint", "my-endpoint-name", dummy_view)
+        self.assertEqual(router.extra_api_urls[0].route.name, "my-endpoint-name")
+
 
 class SerializersContractTests(SimpleTestCase):
     # Component: api/serializers.py
@@ -762,6 +824,93 @@ class SerializersContractTests(SimpleTestCase):
             result = serializer.validate({})
         self.assertIn("user", result)
 
+    # Existing test only checks all-three-missing together.
+    # These three isolate each field condition individually, killing mutants
+    # on each "if field not in attrs or not attrs[field]" branch.
+
+    ## Fix#3 - Add more
+    def test_duration_serializer_missing_only_child_reports_child_required(self):
+        serializer = DummyDurationSerializer()
+        with self.assertRaises(ValidationError) as exc:
+            serializer.validate({"start": "s", "end": "e"})
+        self.assertIn("child", exc.exception.detail)
+        self.assertNotIn("start", exc.exception.detail)
+        self.assertNotIn("end", exc.exception.detail)
+
+    ## Fix#3 - Add more
+    def test_duration_serializer_missing_only_start_reports_start_required(self):
+        serializer = DummyDurationSerializer()
+        with self.assertRaises(ValidationError) as exc:
+            serializer.validate({"child": "c", "end": "e"})
+        self.assertIn("start", exc.exception.detail)
+        self.assertNotIn("child", exc.exception.detail)
+        self.assertNotIn("end", exc.exception.detail)
+
+    ## Fix#3 - Add more
+    def test_duration_serializer_missing_only_end_reports_end_required(self):
+        serializer = DummyDurationSerializer()
+        with self.assertRaises(ValidationError) as exc:
+            serializer.validate({"child": "c", "start": "s"})
+        self.assertIn("end", exc.exception.detail)
+        self.assertNotIn("child", exc.exception.detail)
+        self.assertNotIn("start", exc.exception.detail)
+
+    ## Fix#3 - Add more
+    def test_duration_serializer_missing_two_fields_reports_exactly_those_two(self):
+        serializer = DummyDurationSerializer()
+        with self.assertRaises(ValidationError) as exc:
+            serializer.validate({"child": "c"})
+        self.assertIn("start", exc.exception.detail)
+        self.assertIn("end", exc.exception.detail)
+        self.assertNotIn("child", exc.exception.detail)
+
+    # Present-but-falsy (None): kills the "or not attrs[field]" half of each condition.
+    # Existing tests never pass a field as None in the non-timer path.
+
+    ## Fix#3 - Add more
+    def test_duration_serializer_child_none_reports_child_required(self):
+        serializer = DummyDurationSerializer()
+        with self.assertRaises(ValidationError) as exc:
+            serializer.validate({"child": None, "start": "s", "end": "e"})
+        self.assertIn("child", exc.exception.detail)
+
+    ## Fix#3 - Add more
+    def test_duration_serializer_start_none_reports_start_required(self):
+        serializer = DummyDurationSerializer()
+        with self.assertRaises(ValidationError) as exc:
+            serializer.validate({"child": "c", "start": None, "end": "e"})
+        self.assertIn("start", exc.exception.detail)
+
+    ## Fix#3 - Add more
+    def test_duration_serializer_end_none_reports_end_required(self):
+        serializer = DummyDurationSerializer()
+        with self.assertRaises(ValidationError) as exc:
+            serializer.validate({"child": "c", "start": "s", "end": None})
+        self.assertIn("end", exc.exception.detail)
+
+    # Existing tests only use timer.child=None to test the falsy branch.
+    # An empty string is also falsy, distinguishing "is not None" from truthiness check.
+
+    ## Fix#3 - Add more
+    def test_duration_serializer_timer_with_empty_string_child_does_not_set_child(self):
+        serializer = DummyDurationSerializer()
+        timer = SimpleNamespace(child="", start="timer-start", stop=MagicMock())
+        with patch.object(api_serializers.timezone, "now", return_value="now"):
+            with self.assertRaises(ValidationError) as exc:
+                serializer.validate({"timer": timer})
+        self.assertIn("child", exc.exception.detail)
+        timer.stop.assert_not_called()
+
+    # Existing tests only reach the passing path via timer; this tests the direct path.
+
+    ## Fix#3 - Add more
+    def test_duration_serializer_all_fields_present_and_truthy_passes(self):
+        serializer = DummyDurationSerializer()
+        result = serializer.validate({"child": "c", "start": "s", "end": "e"})
+        self.assertEqual(result["child"], "c")
+        self.assertEqual(result["start"], "s")
+        self.assertEqual(result["end"], "e")
+
 
 class ViewsContractTests(SimpleTestCase):
     # Component: api/views.py
@@ -881,3 +1030,36 @@ class ViewsContractTests(SimpleTestCase):
         request = None
         with self.assertRaises(Exception):
             view.get(request)
+
+    # Existing tests check .ordering but never .ordering_fields.
+    # Kills mutations on the tuple contents.
+
+    ## Fix#3 - add more
+    def test_bmi_viewset_ordering_fields_exact(self):
+        self.assertEqual(views.BMIViewSet.ordering_fields, ("child", "date"))
+
+    ## Fix#3 - add more
+    def test_child_viewset_ordering_fields_exact(self):
+        self.assertEqual(
+            views.ChildViewSet.ordering_fields,
+            ("birth_date", "birth_time", "first_name", "last_name", "slug"),
+        )
+
+    ## Fix#3 - add more
+    def test_timer_viewset_ordering_fields_exact(self):
+        self.assertEqual(views.TimerViewSet.ordering_fields, ("duration", "end", "start"))
+
+    ## Fix#3 - add more
+    def test_tag_viewset_ordering_fields_exact(self):
+        self.assertEqual(views.TagViewSet.ordering_fields, ("last_used", "name", "slug"))
+
+    ## Fix#3 - add more
+    def test_feeding_viewset_ordering_fields_exact(self):
+        self.assertEqual(views.FeedingViewSet.ordering_fields, ("amount", "duration", "end", "start"))
+
+    ## Fix#3 - add more
+    def test_profile_view_queryset_model_is_settings(self):
+        # Not tested anywhere in the original file.
+        from babybuddy import models as babybuddy_models
+        self.assertEqual(views.ProfileView.queryset.model, babybuddy_models.Settings)
+
