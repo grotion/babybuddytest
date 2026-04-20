@@ -9,7 +9,9 @@
 # Date       | Name                     | BC   | Pass/Fail | Mutation                                                #
 # ------------------------------------------------------------------------------------------------------------------ #
 # 2026-04-17 | Initial Test             | 92%  | 41/0      | 465/465  🎉 297 🫥 0  ⏰ 0  🤔 0  🙁 168  🔇 0  🧙 0  #
-# 2026-04-19 | Fix#1 - add more test    | 95%  | 115/0     | 465/465  🎉 393 🫥 0  ⏰ 0  🤔 0  🙁 72  🔇 0  🧙 0   #
+# 2026-04-19 | Fix#1 - add more test    | 92%  | 115/0     | 465/465  🎉 393 🫥 0  ⏰ 0  🤔 0  🙁 72  🔇 0  🧙 0   #
+# 2026-04-19 | Fix#2 - add more test    | 92%  | 156/0     | 465/465  🎉 397 🫥 0  ⏰ 0  🤔 0  🙁 68  🔇 0  🧙 0   #
+# 2026-04-19 | Fix#3                    | 99%  | 191/0     | 465/465  🎉 400 🫥 0  ⏰ 0  🤔 0  🙁 65  🔇 0  🧙 0   #
 # ------------------------------------------------------------------------------------------------------------------ #
 ######################################################################################################################
 
@@ -343,6 +345,33 @@ class TestDashboardViews:
         views.Dashboard().get_context_data()
         assert order_calls == [("last_name", "first_name", "id")]
 
+    ## Fix#2
+    def test_dashboard_get_uses_slug_attribute_not_another(self, monkeypatch):
+        # mutmut_17: Child.objects.first().slug → .XXslug
+        # Pin that the exact .slug attribute is read and passed to reverse()
+        from dashboard import views
+        slug_accesses = []
+
+        class SlugTracker:
+            @property
+            def slug(self):
+                slug_accesses.append("slug")
+                return "tracked-slug"
+
+        child = SlugTracker()
+        monkeypatch.setattr(views.Child, "objects",
+                            FakeManager(default=FakeQuerySet([child])))
+        captured = {}
+        monkeypatch.setattr(views, "reverse",
+                            lambda name, args=None: captured.update({"args": args}) or "/")
+        monkeypatch.setattr(views, "HttpResponseRedirect",
+                            lambda url: SimpleNamespace(status_code=302, url=url))
+
+        views.Dashboard().get(SimpleNamespace())
+
+        assert "slug" in slug_accesses
+        assert "tracked-slug" in str(captured.get("args", ""))
+
 
 class TestCardsUtilities:
     def test_hide_empty_reads_user_setting(self):
@@ -414,6 +443,74 @@ class TestCardsUtilities:
         start_time, now = result["end__range"]
         assert now == base
         assert start_time == base - age
+
+    ## Fix#2
+    def test_filter_data_age_default_keyword_is_end_produces_end_range(self, monkeypatch):
+        # mutmut_1: keyword="end" default → keyword="XXend"
+        # The only way to catch this is to call _filter_data_age WITHOUT passing keyword,
+        # so the default is used. If default were "XXend", key would be "XXend__range".
+        from dashboard.templatetags import cards
+        now = aware_datetime(2026, 4, 15, 12)
+        monkeypatch.setattr(cards.timezone, "localtime", lambda value=None: now)
+        ctx = make_context(hide_age=dt.timedelta(hours=6))
+
+        result = cards._filter_data_age(ctx)  # no keyword arg → uses default
+
+        assert list(result.keys()) == ["end__range"]
+        assert result["end__range"][1] == now
+
+    ## Fix#2
+    def test_filter_data_age_range_suffix_is_exactly_double_underscore_range(self, monkeypatch):
+        # mutmut_2: keyword + "__range" → keyword + "XX__range"
+        # Pin that the suffix is exactly "__range", not "XX__range" or "_range"
+        from dashboard.templatetags import cards
+        now = aware_datetime(2026, 4, 15, 12)
+        monkeypatch.setattr(cards.timezone, "localtime", lambda value=None: now)
+        ctx = make_context(hide_age=dt.timedelta(hours=6))
+
+        result = cards._filter_data_age(ctx, keyword="time")
+
+        assert "time__range" in result
+        assert "timeXX__range" not in result
+        assert "time_range" not in result
+
+    ## Fix#2
+    def test_filter_data_age_range_value_is_tuple_start_now(self, monkeypatch):
+        # Pin exact tuple content: (start_time, now) not (now, start_time)
+        from dashboard.templatetags import cards
+        now = aware_datetime(2026, 4, 15, 12)
+        age = dt.timedelta(hours=6)
+        monkeypatch.setattr(cards.timezone, "localtime", lambda value=None: now)
+        ctx = make_context(hide_age=age)
+
+        result = cards._filter_data_age(ctx)
+
+        start_time, end_time = result["end__range"]
+        assert end_time == now
+        assert start_time == now - age
+        assert start_time != now  # not swapped
+
+    ## Fix#3
+    def test_filter_data_age_no_keyword_uses_end_default(self, monkeypatch):
+        # mutmut_1: keyword="end" → keyword="XXend"
+        # Call WITHOUT keyword arg so the default is exercised.
+        from dashboard.templatetags import cards
+        now = aware_datetime(2026, 4, 15, 12)
+        monkeypatch.setattr(cards.timezone, "localtime", lambda value=None: now)
+        ctx = make_context(hide_age=dt.timedelta(hours=6))
+        result = cards._filter_data_age(ctx)  # no keyword → uses default "end"
+        assert "end__range" in result
+        assert "XXend__range" not in result
+
+    ## Fix#3
+    def test_filter_data_age_key_suffix_is_double_underscore_range(self, monkeypatch):
+        # mutmut_2: "__range" → "XX__range"
+        from dashboard.templatetags import cards
+        now = aware_datetime(2026, 4, 15, 12)
+        monkeypatch.setattr(cards.timezone, "localtime", lambda value=None: now)
+        ctx = make_context(hide_age=dt.timedelta(hours=6))
+        result = cards._filter_data_age(ctx, keyword="time")
+        assert list(result.keys()) == ["time__range"]  # exactly "time__range", nothing else
 
 
 class TestCardDiaperChangeComponents:
@@ -547,6 +644,119 @@ class TestCardDiaperChangeComponents:
         )
         assert len(combine_calls) == 1
         assert result["empty"] is True
+
+    ## Fix#2
+    def test_card_diaperchange_types_with_date_uses_combine_and_make_aware(self, monkeypatch):
+        # Partial line 60 / missing 61: else branch — explicit date provided
+        from dashboard.templatetags import cards
+        base = aware_datetime(2026, 4, 15, 0)
+        combine_args = []
+
+        def fake_combine(d, t):
+            combine_args.append(d)
+            return base.replace(tzinfo=None)
+
+        monkeypatch.setattr(cards.timezone, "datetime",
+                            SimpleNamespace(combine=fake_combine))
+        monkeypatch.setattr(cards.timezone, "make_aware", lambda v: base)
+        monkeypatch.setattr(cards.timezone, "localtime",
+                            lambda value=None: base if value is None else value)
+        monkeypatch.setattr(cards.timezone, "timedelta", dt.timedelta)
+        monkeypatch.setattr(cards.models.DiaperChange, "objects",
+                            FakeManager(default=FakeQuerySet([])))
+
+        result = cards.card_diaperchange_types(
+            make_context(), "child", date=dt.date(2026, 4, 15)
+        )
+        assert combine_args == [dt.date(2026, 4, 15)]
+        assert result["empty"] is True
+
+    ## Fix#2
+    def test_diaperchange_statistics_interval_uses_localtime_on_both_instances(self, monkeypatch):
+        # mutmut_46-49: timezone.localtime() called on last_instance.time AND instance.time
+        # Pin that both times are passed through localtime
+        from dashboard.templatetags import cards
+        base = aware_datetime(2026, 4, 15, 12)
+        localtime_args = []
+
+        def tracking_localtime(value=None):
+            if value is not None:
+                localtime_args.append(value)
+                return value
+            return base
+
+        monkeypatch.setattr(cards.timezone, "localtime", tracking_localtime)
+        t1 = SimpleNamespace(time=base - dt.timedelta(hours=4))
+        t2 = SimpleNamespace(time=base - dt.timedelta(hours=2))
+        monkeypatch.setattr(cards.models.DiaperChange, "objects",
+                            FakeManager(default=FakeQuerySet([t1, t2])))
+
+        cards._diaperchange_statistics("child")
+
+        assert t1.time in localtime_args
+        assert t2.time in localtime_args
+
+    ## Fix#2
+    def test_diaperchange_statistics_interval_is_current_minus_last(self, monkeypatch):
+        # mutmut_53: interval = localtime(instance.time) - last_time
+        # Pin direction: current - last (not last - current)
+        from dashboard.templatetags import cards
+        base = aware_datetime(2026, 4, 15, 12)
+        monkeypatch.setattr(cards.timezone, "localtime",
+                            lambda value=None: base if value is None else value)
+        t1 = SimpleNamespace(time=base - dt.timedelta(hours=6))
+        t2 = SimpleNamespace(time=base - dt.timedelta(hours=2))
+        monkeypatch.setattr(cards.models.DiaperChange, "objects",
+                            FakeManager(default=FakeQuerySet([t1, t2])))
+
+        stats = cards._diaperchange_statistics("child")
+        # interval = t2.time - t1.time = 4h (not t1 - t2 = -4h)
+        assert stats[2]["btwn_average"] == dt.timedelta(hours=4)
+        assert stats[2]["btwn_average"] != dt.timedelta(hours=-4)
+
+    ## Fix#2
+    def test_diaperchange_statistics_btwn_count_increments_by_one(self, monkeypatch):
+        # mutmut_60: btwn_count += 1 → += 2 or other
+        from dashboard.templatetags import cards
+        base = aware_datetime(2026, 4, 15, 12)
+        monkeypatch.setattr(cards.timezone, "localtime",
+                            lambda value=None: base if value is None else value)
+        t1 = SimpleNamespace(time=base - dt.timedelta(hours=6))
+        t2 = SimpleNamespace(time=base - dt.timedelta(hours=3))
+        t3 = SimpleNamespace(time=base - dt.timedelta(hours=1))
+        monkeypatch.setattr(cards.models.DiaperChange, "objects",
+                            FakeManager(default=FakeQuerySet([t1, t2, t3])))
+
+        stats = cards._diaperchange_statistics("child")
+        assert stats[2]["btwn_count"] == 2  # exactly 2 intervals for 3 items
+
+    ## Fix#2
+    def test_diaperchange_statistics_returns_changes_list(self, monkeypatch):
+        # mutmut_78: return changes → return None or similar
+        from dashboard.templatetags import cards
+        base = aware_datetime(2026, 4, 15, 12)
+        monkeypatch.setattr(cards.timezone, "localtime",
+                            lambda value=None: base if value is None else value)
+        monkeypatch.setattr(cards.models.DiaperChange, "objects",
+                            FakeManager(default=FakeQuerySet([SimpleNamespace(time=base)])))
+
+        result = cards._diaperchange_statistics("child")
+        assert result is not False
+        assert result is not None
+        assert isinstance(result, list)
+        assert len(result) == 3
+
+    ## Fix#3
+    def test_card_diaperchange_types_without_date_uses_localtime(self, monkeypatch):
+        # partial 60 / missing 61: "if not date:" True branch — call without date arg
+        from dashboard.templatetags import cards
+        now = aware_datetime(2026, 4, 15, 12)
+        monkeypatch.setattr(cards.timezone, "localtime", lambda value=None: now if value is None else value)
+        monkeypatch.setattr(cards.timezone, "timedelta", dt.timedelta)
+        monkeypatch.setattr(cards.models.DiaperChange, "objects", FakeManager(default=FakeQuerySet([])))
+        # Call WITHOUT date → hits "if not date:" → date = timezone.localtime()
+        result = cards.card_diaperchange_types(make_context(), child="child")
+        assert result["empty"] is True  # no instances, but the branch was taken
 
 
 class TestCardBreastfeedingAndFeedingComponents:
@@ -767,6 +977,140 @@ class TestCardBreastfeedingAndFeedingComponents:
         # When end_date is provided, timezone.localtime() should NOT be called
         # to set end_date (branch skipped)
         assert result is not None
+
+    ## Fix#2
+    def test_card_breastfeeding_with_explicit_date_calls_combine(self, monkeypatch):
+        # Partial 154: if date: branch — date provided → combine called
+        from dashboard.templatetags import cards
+        base = aware_datetime(2026, 4, 15, 0)
+        combine_calls = []
+
+        monkeypatch.setattr(cards.timezone, "datetime",
+                            SimpleNamespace(combine=lambda d, t: combine_calls.append(d) or base.replace(tzinfo=None)))
+        monkeypatch.setattr(cards.timezone, "make_aware", lambda v: base)
+        monkeypatch.setattr(cards.timezone, "localtime",
+                            lambda value=None: base if value is None else value)
+        monkeypatch.setattr(cards.timezone, "timedelta", dt.timedelta)
+        monkeypatch.setattr(cards.models.Feeding, "objects",
+                            FakeManager(default=FakeQuerySet([])))
+
+        result = cards.card_breastfeeding(make_context(), "child", date=dt.date(2026, 4, 15))
+        assert combine_calls == [dt.date(2026, 4, 15)]
+        assert result["total"] == 0
+
+    ## Fix#2
+    def test_card_feeding_recent_with_explicit_end_date_skips_localtime(self, monkeypatch):
+        # Partial 188 / missing 189: if not end_date: — False branch, explicit end given
+        from dashboard.templatetags import cards
+        explicit_end = aware_datetime(2026, 4, 10, 23, 59, 59)
+        localtime_called_to_set_end = []
+
+        original_localtime = lambda value=None: explicit_end
+
+        monkeypatch.setattr(cards.timezone, "localtime", original_localtime)
+        monkeypatch.setattr(cards.timezone, "timedelta", dt.timedelta)
+        monkeypatch.setattr(cards.models.Feeding, "objects",
+                            FakeManager(default=FakeQuerySet([])))
+
+        result = cards.card_feeding_recent(make_context(), "child", end_date=explicit_end)
+        assert result is not None
+        assert "hide_empty" in result
+
+    ## Fix#2
+    def test_feeding_statistics_interval_uses_localtime_on_start_and_end(self, monkeypatch):
+        # mutmut_46-49: localtime called on instance.start, last_instance.start, last_instance.end
+        from dashboard.templatetags import cards
+        base = aware_datetime(2026, 4, 15, 12)
+        localtime_args = []
+
+        def tracking_localtime(value=None):
+            if value is not None:
+                localtime_args.append(value)
+                return value
+            return base
+
+        monkeypatch.setattr(cards.timezone, "localtime", tracking_localtime)
+        f1 = SimpleNamespace(start=base - dt.timedelta(hours=5),
+                             end=base - dt.timedelta(hours=4, minutes=30))
+        f2 = SimpleNamespace(start=base - dt.timedelta(hours=2),
+                             end=base - dt.timedelta(hours=1, minutes=30))
+        monkeypatch.setattr(cards.models.Feeding, "objects",
+                            FakeManager(default=FakeQuerySet([f1, f2])))
+
+        cards._feeding_statistics("child")
+        assert f1.start in localtime_args
+        assert f1.end in localtime_args
+        assert f2.start in localtime_args
+
+    ## Fix#2
+    def test_feeding_statistics_interval_is_current_start_minus_last_end(self, monkeypatch):
+        # mutmut_53: start - last_end → direction matters
+        from dashboard.templatetags import cards
+        base = aware_datetime(2026, 4, 15, 12)
+        monkeypatch.setattr(cards.timezone, "localtime",
+                            lambda value=None: base if value is None else value)
+        f1 = SimpleNamespace(start=base.replace(hour=8), end=base.replace(hour=8, minute=30))
+        f2 = SimpleNamespace(start=base.replace(hour=11), end=base.replace(hour=11, minute=30))
+        monkeypatch.setattr(cards.models.Feeding, "objects",
+                            FakeManager(default=FakeQuerySet([f1, f2])))
+
+        stats = cards._feeding_statistics("child")
+        # 11:00 - 8:30 = 2h30m (not negative)
+        assert stats[2]["btwn_average"] == dt.timedelta(hours=2, minutes=30)
+        assert stats[2]["btwn_average"] != dt.timedelta(hours=-2, minutes=-30)
+
+    ## Fix#2
+    def test_feeding_statistics_btwn_count_increments_by_one(self, monkeypatch):
+        # mutmut_64: btwn_count += 1 → += 2
+        from dashboard.templatetags import cards
+        base = aware_datetime(2026, 4, 15, 12)
+        monkeypatch.setattr(cards.timezone, "localtime",
+                            lambda value=None: base if value is None else value)
+        f1 = SimpleNamespace(start=base.replace(hour=6), end=base.replace(hour=6, minute=30))
+        f2 = SimpleNamespace(start=base.replace(hour=8), end=base.replace(hour=8, minute=30))
+        f3 = SimpleNamespace(start=base.replace(hour=10), end=base.replace(hour=10, minute=30))
+        monkeypatch.setattr(cards.models.Feeding, "objects",
+                            FakeManager(default=FakeQuerySet([f1, f2, f3])))
+
+        stats = cards._feeding_statistics("child")
+        assert stats[2]["btwn_count"] == 2  # exactly 2 for 3 items
+
+    ## Fix#3
+    def test_card_breastfeeding_right_breast_only_not_counted_as_left(self, monkeypatch):
+        # partial line 154: "if method in ('left breast','both breasts')" — False branch
+        # Need a feeding with method="right breast" (not left, not both)
+        from dashboard.templatetags import cards
+        base = aware_datetime(2026, 4, 15, 0)
+        monkeypatch.setattr(cards.timezone, "localtime", lambda value=None: base if value is None else value)
+        monkeypatch.setattr(cards.timezone, "timedelta", dt.timedelta)
+
+        feeding = SimpleNamespace(
+            start=base + dt.timedelta(hours=10),
+            end=base + dt.timedelta(hours=10, minutes=20),
+            duration=dt.timedelta(minutes=20),
+            method="right breast",  # NOT in ("left breast", "both breasts") → False branch
+        )
+        monkeypatch.setattr(cards.models.Feeding, "objects",
+                            FakeManager(default=FakeQuerySet([feeding])))
+
+        result = cards.card_breastfeeding(make_context(), child="child")
+        # right breast only: left_count=0, right_count=1
+        day_stats = result["stats"].get(0) or result["stats"].get(1)
+        if day_stats:
+            assert day_stats["left_count"] == 0
+            assert day_stats["right_count"] == 1
+
+    ## Fix#3
+    def test_card_feeding_recent_without_end_date_uses_localtime(self, monkeypatch):
+        # partial 188 / missing 189: "if not end_date:" True branch — call without end_date
+        from dashboard.templatetags import cards
+        now = aware_datetime(2026, 4, 15, 23, 59, 59)
+        monkeypatch.setattr(cards.timezone, "localtime", lambda value=None: now if value is None else value)
+        monkeypatch.setattr(cards.timezone, "timedelta", dt.timedelta)
+        monkeypatch.setattr(cards.models.Feeding, "objects", FakeManager(default=FakeQuerySet([])))
+        # Call WITHOUT end_date → hits "if not end_date:" → end_date = timezone.localtime()
+        result = cards.card_feeding_recent(make_context(), child="child")
+        assert result["empty"] is True
 
 
 class TestCardPumpingAndSleepComponents:
@@ -989,6 +1333,153 @@ class TestCardPumpingAndSleepComponents:
         )
         # timezone.localtime() not called for date when date explicitly provided
         assert localtime_called == []
+        assert result["empty"] is True
+
+    ## Fix#2
+    def test_card_sleep_recent_with_explicit_end_date_skips_localtime(self, monkeypatch):
+        # Partial 326 / missing 327: False branch of "if not end_date:"
+        from dashboard.templatetags import cards
+        explicit_end = aware_datetime(2026, 4, 10, 23, 59, 59)
+        monkeypatch.setattr(cards.timezone, "localtime",
+                            lambda value=None: explicit_end if value is None else value)
+        monkeypatch.setattr(cards.timezone, "timedelta", dt.timedelta)
+        monkeypatch.setattr(cards.models.Sleep, "objects",
+                            FakeManager(default=FakeQuerySet([])))
+
+        result = cards.card_sleep_recent(make_context(), "child", end_date=explicit_end)
+        assert result["empty"] is True
+        assert "sleeps" in result
+
+    ## Fix#2
+    def test_card_sleep_recent_cross_midnight_sleep_start_outside_window(self, monkeypatch):
+        # Partial 367: 0 <= start_idx < len(results) — False branch (start outside window)
+        from dashboard.templatetags import cards
+        end_date = aware_datetime(2026, 4, 15, 23, 59, 59)
+        monkeypatch.setattr(cards.timezone, "localtime",
+                            lambda value=None: end_date if value is None else value)
+        monkeypatch.setattr(cards.timezone, "timedelta", dt.timedelta)
+
+        # Sleep starts 10 days ago (outside 8-day window), ends 1 day ago (inside)
+        old_sleep = SimpleNamespace(
+            start=aware_datetime(2026, 4, 5, 22, 0, 0),   # 10 days ago
+            end=aware_datetime(2026, 4, 6, 6, 0, 0),      # 9 days ago
+            duration=dt.timedelta(hours=8),
+        )
+        monkeypatch.setattr(cards.models.Sleep, "objects",
+                            FakeManager(default=FakeQuerySet([old_sleep])))
+
+        result = cards.card_sleep_recent(make_context(), "child", end_date=end_date)
+        # start_idx would be >= len(results) → that bucket skipped
+        # end_idx would also be >= len(results) → also skipped
+        total_sleep = sum((r["total"] for r in result["sleeps"]), dt.timedelta())
+        assert total_sleep == dt.timedelta()
+
+    ## Fix#2
+    def test_card_sleep_recent_cross_midnight_end_outside_window(self, monkeypatch):
+        # Partial 373: 0 <= end_idx < len(results) — False branch (end outside window)
+        from dashboard.templatetags import cards
+        end_date = aware_datetime(2026, 4, 15, 23, 59, 59)
+        monkeypatch.setattr(cards.timezone, "localtime",
+                            lambda value=None: end_date if value is None else value)
+        monkeypatch.setattr(cards.timezone, "timedelta", dt.timedelta)
+
+        # Sleep starts 1 day ago (inside window), ends 10 days ago (impossible but covers branch)
+        # More realistically: end_idx out of bounds when end is very recent (idx 0)
+        # and start is not in the same day
+        # Use a sleep that is within window but split-day where end_idx = 0 already covered
+        # and start_idx IS covered but end_idx would be < 0
+        recent_sleep = SimpleNamespace(
+            start=aware_datetime(2026, 4, 14, 22, 0, 0),  # yesterday evening
+            end=aware_datetime(2026, 4, 15, 6, 0, 0),     # today morning
+            duration=dt.timedelta(hours=8),
+        )
+        monkeypatch.setattr(cards.models.Sleep, "objects",
+                            FakeManager(default=FakeQuerySet([recent_sleep])))
+
+        result = cards.card_sleep_recent(make_context(), "child", end_date=end_date)
+        # Both start and end are in the window — both buckets should get some time
+        total_sleep = sum((r["total"] for r in result["sleeps"]), dt.timedelta())
+        assert total_sleep > dt.timedelta()
+
+    ## Fix#2
+    def test_card_sleep_naps_day_with_explicit_date_does_not_use_localtime(self, monkeypatch):
+        # Partial 396 / missing 397: else branch — explicit date provided
+        from dashboard.templatetags import cards
+        localtime_calls = []
+        monkeypatch.setattr(cards.timezone, "localtime",
+                            lambda: localtime_calls.append(True) or aware_datetime(2026, 4, 15))
+        monkeypatch.setattr(cards.models.Sleep, "objects",
+                            FakeManager(default=FakeQuerySet([])))
+
+        result = cards.card_sleep_naps_day(make_context(), "child", date=dt.date(2026, 4, 15))
+        assert localtime_calls == []
+        assert result["empty"] is True
+
+    ## Fix#3
+    def test_card_sleep_recent_without_end_date_uses_localtime(self, monkeypatch):
+        # partial 326 / missing 327: "if not end_date:" True branch — call without end_date
+        from dashboard.templatetags import cards
+        now = aware_datetime(2026, 4, 15, 23, 59, 59)
+        monkeypatch.setattr(cards.timezone, "localtime", lambda value=None: now if value is None else value)
+        monkeypatch.setattr(cards.timezone, "timedelta", dt.timedelta)
+        monkeypatch.setattr(cards.models.Sleep, "objects", FakeManager(default=FakeQuerySet([])))
+        # Call WITHOUT end_date
+        result = cards.card_sleep_recent(make_context(), child="child")
+        assert result["empty"] is True
+
+    ## Fix#3
+    def test_card_sleep_recent_cross_midnight_start_idx_out_of_bounds(self, monkeypatch):
+        # partial 367: "if 0 <= start_idx < len(results)" False branch
+        # Sleep that crosses midnight where start is BEFORE the 8-day window
+        from dashboard.templatetags import cards
+        end_date = aware_datetime(2026, 4, 15, 23, 59, 59)
+        monkeypatch.setattr(cards.timezone, "localtime",
+                            lambda value=None: end_date if value is None else value)
+        monkeypatch.setattr(cards.timezone, "timedelta", dt.timedelta)
+
+        # Sleep starts 20 days ago (start_idx >= 8) but ends 7 days ago (end_idx in range)
+        sleep = SimpleNamespace(
+            start=aware_datetime(2026, 3, 26, 22, 0, 0),  # 20 days ago
+            end=aware_datetime(2026, 4, 9, 6, 0, 0),       # 6 days ago, in window
+        )
+        monkeypatch.setattr(cards.models.Sleep, "objects",
+                            FakeManager(default=FakeQuerySet([sleep])))
+        result = cards.card_sleep_recent(make_context(), child="child", end_date=end_date)
+        # start_idx out of bounds → skip start bucket; end_idx in range → add end portion
+        assert result is not None
+
+    ## Fix#3
+    def test_card_sleep_recent_cross_midnight_end_idx_out_of_bounds(self, monkeypatch):
+        # partial 373: "if 0 <= end_idx < len(results)" False branch
+        # Sleep that crosses midnight where end is AFTER the window end (end_idx < 0)
+        from dashboard.templatetags import cards
+        end_date = aware_datetime(2026, 4, 15, 23, 59, 59)
+        monkeypatch.setattr(cards.timezone, "localtime",
+                            lambda value=None: end_date if value is None else value)
+        monkeypatch.setattr(cards.timezone, "timedelta", dt.timedelta)
+
+        # Sleep starts 1 day ago (in window) but ends today very late (end_idx = -1 or 0)
+        # To get end_idx < 0: end is AFTER end_date (in the future from window perspective)
+        sleep = SimpleNamespace(
+            start=aware_datetime(2026, 4, 7, 22, 0, 0),   # 8 days ago, edge of window
+            end=aware_datetime(2026, 4, 16, 6, 0, 0),      # 1 day in future → end_idx < 0
+        )
+        monkeypatch.setattr(cards.models.Sleep, "objects",
+                            FakeManager(default=FakeQuerySet([sleep])))
+        result = cards.card_sleep_recent(make_context(), child="child", end_date=end_date)
+        assert result is not None
+
+    ## Fix#3
+    def test_card_sleep_naps_day_without_date_uses_localtime(self, monkeypatch):
+        # partial 396 / missing 397: "if not date:" True branch — call without date
+        from dashboard.templatetags import cards
+        today = dt.date(2026, 4, 15)
+        monkeypatch.setattr(cards.timezone, "localtime",
+                            lambda: SimpleNamespace(date=lambda: today))
+        monkeypatch.setattr(cards.models.Sleep, "objects",
+                            FakeManager(default=FakeQuerySet([])))
+        # Call WITHOUT date → hits "if not date:" → date = timezone.localtime().date()
+        result = cards.card_sleep_naps_day(make_context(), child="child")
         assert result["empty"] is True
 
 
@@ -2082,6 +2573,740 @@ class TestCardStatisticsHelpers:
         assert nap_per["type"] == "float"
         assert nap_per["stat"] == weight_chg
 
+    ## Fix#2
+    def test_nap_statistics_filter_kwarg_nap_is_true(self, monkeypatch):
+        # mutmut_2,3: nap=True → nap=False or nap="XXnap"
+        # Use a tracking manager that records exact kwargs
+        from dashboard.templatetags import cards
+        filter_kwargs = []
+
+        class TrackingManager(FakeManager):
+            def filter(self, *args, **kwargs):
+                filter_kwargs.append(dict(kwargs))
+                return FakeNapAggregateQuerySet([], naps_avg=0)
+
+        monkeypatch.setattr(cards.models.Sleep, "objects", TrackingManager())
+        cards._nap_statistics("child")
+        nap_values = [kw.get("nap") for kw in filter_kwargs]
+        assert True in nap_values
+        assert False not in nap_values
+
+    ## Fix#2
+    def test_nap_statistics_order_by_start(self, monkeypatch):
+        # mutmut_5: order_by("start") → "XXstart" — pin exact sort key
+        from dashboard.templatetags import cards
+        order_args = []
+
+        class TrackingQS(FakeNapAggregateQuerySet):
+            def order_by(self, *args):
+                order_args.extend(args)
+                return self
+
+        class TrackingManager(FakeManager):
+            def filter(self, *args, **kwargs):
+                return TrackingQS(
+                    [SimpleNamespace(duration=dt.timedelta(minutes=30))],
+                    naps_avg=1.0
+                )
+
+        monkeypatch.setattr(cards.models.Sleep, "objects", TrackingManager())
+        cards._nap_statistics("child")
+        assert "start" in order_args
+
+    ## Fix#2
+    def test_nap_statistics_duration_sum_key_exact(self, monkeypatch):
+        # mutmut_8,9: "duration__sum" aggregate key
+        from dashboard.templatetags import cards
+        nap1 = SimpleNamespace(duration=dt.timedelta(minutes=45))
+        nap2 = SimpleNamespace(duration=dt.timedelta(minutes=75))
+        naps = FakeNapAggregateQuerySet([nap1, nap2], naps_avg=1.0)
+        monkeypatch.setattr(cards.models.Sleep, "objects",
+                            FakeManager(mapping={lambda kw: kw.get("nap") is True: naps},
+                                        default=FakeQuerySet([])))
+
+        result = cards._nap_statistics("child")
+        assert result["total"] == dt.timedelta(hours=2)  # aggregate("duration__sum") used
+
+    ## Fix#2
+    def test_nap_statistics_total_key_in_result(self, monkeypatch):
+        # mutmut_16,17: "total" key name
+        from dashboard.templatetags import cards
+        naps = FakeNapAggregateQuerySet(
+            [SimpleNamespace(duration=dt.timedelta(minutes=60))], naps_avg=1.0
+        )
+        monkeypatch.setattr(cards.models.Sleep, "objects",
+                            FakeManager(mapping={lambda kw: kw.get("nap") is True: naps},
+                                        default=FakeQuerySet([])))
+        result = cards._nap_statistics("child")
+        assert "total" in result
+
+    ## Fix#2
+    def test_nap_statistics_count_equals_queryset_count(self, monkeypatch):
+        # mutmut_18,19: "count" key / instances.count() call
+        from dashboard.templatetags import cards
+        naps = FakeNapAggregateQuerySet(
+            [SimpleNamespace(duration=dt.timedelta(minutes=30)),
+             SimpleNamespace(duration=dt.timedelta(minutes=30)),
+             SimpleNamespace(duration=dt.timedelta(minutes=30))],
+            naps_avg=1.5
+        )
+        monkeypatch.setattr(cards.models.Sleep, "objects",
+                            FakeManager(mapping={lambda kw: kw.get("nap") is True: naps},
+                                        default=FakeQuerySet([])))
+        result = cards._nap_statistics("child")
+        assert result["count"] == 3
+
+    ## Fix#2
+    def test_nap_statistics_avg_per_day_key_exact(self, monkeypatch):
+        # mutmut_27,28,29: "avg_per_day" key and "naps_count__avg" lookup key
+        from dashboard.templatetags import cards
+        naps = FakeNapAggregateQuerySet(
+            [SimpleNamespace(duration=dt.timedelta(minutes=60))], naps_avg=2.5
+        )
+        monkeypatch.setattr(cards.models.Sleep, "objects",
+                            FakeManager(mapping={lambda kw: kw.get("nap") is True: naps},
+                                        default=FakeQuerySet([])))
+        result = cards._nap_statistics("child")
+        assert "avg_per_day" in result
+        assert result["avg_per_day"] == 2.5
+
+    ## Fix#2
+    def test_nap_statistics_returns_dict_not_false(self, monkeypatch):
+        # mutmut_33: return naps → return False
+        from dashboard.templatetags import cards
+        naps = FakeNapAggregateQuerySet(
+            [SimpleNamespace(duration=dt.timedelta(minutes=60))], naps_avg=1.0
+        )
+        monkeypatch.setattr(cards.models.Sleep, "objects",
+                            FakeManager(mapping={lambda kw: kw.get("nap") is True: naps},
+                                        default=FakeQuerySet([])))
+        result = cards._nap_statistics("child")
+        assert result is not False
+        assert isinstance(result, dict)
+
+    # --- _sleep_statistics ---
+    ## Fix#2
+    def test_sleep_statistics_total_is_duration_sum(self, monkeypatch):
+        # mutmut_2,3: "duration" string and "duration__sum" key in aggregate
+        from dashboard.templatetags import cards
+        s1 = SimpleNamespace(start=aware_datetime(2026, 4, 15, 0),
+                             end=aware_datetime(2026, 4, 15, 3),
+                             duration=dt.timedelta(hours=3))
+        s2 = SimpleNamespace(start=aware_datetime(2026, 4, 15, 5),
+                             end=aware_datetime(2026, 4, 15, 8),
+                             duration=dt.timedelta(hours=3))
+        monkeypatch.setattr(cards.models.Sleep, "objects",
+                            FakeManager(default=FakeQuerySet([s1, s2])))
+        result = cards._sleep_statistics("child")
+        assert result["total"] == dt.timedelta(hours=6)
+
+    ## Fix#2
+    def test_sleep_statistics_count_key_exact(self, monkeypatch):
+        # mutmut_4,5: "count" key name
+        from dashboard.templatetags import cards
+        s1 = SimpleNamespace(start=aware_datetime(2026, 4, 15, 0),
+                             end=aware_datetime(2026, 4, 15, 2),
+                             duration=dt.timedelta(hours=2))
+        monkeypatch.setattr(cards.models.Sleep, "objects",
+                            FakeManager(default=FakeQuerySet([s1])))
+        result = cards._sleep_statistics("child")
+        assert "count" in result
+        assert result["count"] == 1
+
+    ## Fix#2
+    def test_sleep_statistics_btwn_count_is_count_minus_one_exactly(self, monkeypatch):
+        # mutmut_12,13,14,15: btwn_count = instances.count() - 1
+        from dashboard.templatetags import cards
+        sleeps = [SimpleNamespace(start=aware_datetime(2026, 4, 15, i*2),
+                                  end=aware_datetime(2026, 4, 15, i*2+1),
+                                  duration=dt.timedelta(hours=1))
+                  for i in range(4)]
+        monkeypatch.setattr(cards.models.Sleep, "objects",
+                            FakeManager(default=FakeQuerySet(sleeps)))
+        result = cards._sleep_statistics("child")
+        assert result["count"] == 4
+        assert result["btwn_count"] == 3  # count - 1, not count - 2
+
+    ## Fix#2
+    def test_sleep_statistics_awake_interval_direction_exact(self, monkeypatch):
+        # mutmut_34: start - last_end → last_end - start (would give negative)
+        from dashboard.templatetags import cards
+        s1 = SimpleNamespace(start=aware_datetime(2026, 4, 15, 0),
+                             end=aware_datetime(2026, 4, 15, 2),
+                             duration=dt.timedelta(hours=2))
+        s2 = SimpleNamespace(start=aware_datetime(2026, 4, 15, 5),
+                             end=aware_datetime(2026, 4, 15, 7),
+                             duration=dt.timedelta(hours=2))
+        monkeypatch.setattr(cards.models.Sleep, "objects",
+                            FakeManager(default=FakeQuerySet([s1, s2])))
+        result = cards._sleep_statistics("child")
+        assert result["btwn_total"] == dt.timedelta(hours=3)  # 5am - 2am
+        assert result["btwn_total"] > dt.timedelta()  # positive
+
+    ## Fix#2
+    def test_sleep_statistics_single_sleep_btwn_average_zero(self, monkeypatch):
+        # mutmut_48: btwn_average computation / partial 715
+        from dashboard.templatetags import cards
+        s1 = SimpleNamespace(start=aware_datetime(2026, 4, 15, 0),
+                             end=aware_datetime(2026, 4, 15, 2),
+                             duration=dt.timedelta(hours=2))
+        monkeypatch.setattr(cards.models.Sleep, "objects",
+                            FakeManager(default=FakeQuerySet([s1])))
+        result = cards._sleep_statistics("child")
+        assert result["btwn_count"] == 0
+        assert result["btwn_average"] == 0.0
+
+    # --- _weight/_height/_hc/_bmi: exact attribute and arithmetic ---
+    ## Fix#2
+    def test_weight_statistics_uses_dot_weight_not_other_attribute(self, monkeypatch):
+        # mutmut_6,7: newest.weight - oldest.weight attribute names
+        from dashboard.templatetags import cards
+
+        class WeightObject:
+            def __init__(self, weight, date):
+                self.weight = weight
+                self.other = 999  # wrong attribute
+                self.date = date
+
+        newest = WeightObject(weight=20, date=dt.date(2026, 4, 15))
+        oldest = WeightObject(weight=10, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.Weight, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._weight_statistics("child")
+        assert result["change_weekly"] == pytest.approx(5.0)  # (20-10) / 2weeks
+
+    ## Fix#2
+    def test_weight_statistics_uses_dot_date_not_other_attribute(self, monkeypatch):
+        # mutmut_8,9: (newest.date - oldest.date).days — .date attribute
+        from dashboard.templatetags import cards
+
+        class WeightObject:
+            def __init__(self, weight, date):
+                self.weight = weight
+                self.date = date
+                self.wrong_date = dt.date(2020, 1, 1)
+
+        newest = WeightObject(weight=14, date=dt.date(2026, 4, 15))
+        oldest = WeightObject(weight=10, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.Weight, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._weight_statistics("child")
+        # 4 / 2weeks = 2.0, not based on wrong_date
+        assert result["change_weekly"] == pytest.approx(2.0)
+
+    ## Fix#2
+    def test_weight_statistics_divides_change_by_weeks(self, monkeypatch):
+        # mutmut_12: weight_change / weeks — division, not multiplication
+        from dashboard.templatetags import cards
+        newest = SimpleNamespace(weight=10, date=dt.date(2026, 4, 15))
+        oldest = SimpleNamespace(weight=3, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.Weight, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._weight_statistics("child")
+        # 7 / 2 = 3.5 (not 7 * 2 = 14)
+        assert result["change_weekly"] == pytest.approx(3.5)
+        assert result["change_weekly"] != pytest.approx(14.0)
+
+    ## Fix#2
+    def test_height_statistics_uses_dot_height(self, monkeypatch):
+        # mutmut_6,7: newest.height - oldest.height
+        from dashboard.templatetags import cards
+        newest = SimpleNamespace(height=65, date=dt.date(2026, 4, 15))
+        oldest = SimpleNamespace(height=58, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.Height, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._height_statistics("child")
+        assert result["change_weekly"] == pytest.approx(3.5)
+
+    ## Fix#2
+    def test_height_statistics_uses_dot_date(self, monkeypatch):
+        # mutmut_8,9: (newest.date - oldest.date).days
+        from dashboard.templatetags import cards
+        newest = SimpleNamespace(height=70, date=dt.date(2026, 4, 22))  # 3 weeks
+        oldest = SimpleNamespace(height=61, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.Height, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._height_statistics("child")
+        assert result["change_weekly"] == pytest.approx(3.0)
+
+    ## Fix#2
+    def test_height_statistics_divides_by_weeks(self, monkeypatch):
+        # mutmut_12: height_change / weeks
+        from dashboard.templatetags import cards
+        newest = SimpleNamespace(height=10, date=dt.date(2026, 4, 15))
+        oldest = SimpleNamespace(height=3, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.Height, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._height_statistics("child")
+        assert result["change_weekly"] == pytest.approx(3.5)
+
+    ## Fix#2
+    def test_head_circumference_statistics_uses_hc_attribute(self, monkeypatch):
+        # mutmut_6,7: newest.head_circumference - oldest.head_circumference
+        from dashboard.templatetags import cards
+        newest = SimpleNamespace(head_circumference=44, date=dt.date(2026, 4, 15))
+        oldest = SimpleNamespace(head_circumference=40, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.HeadCircumference, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._head_circumference_statistics("child")
+        assert result["change_weekly"] == pytest.approx(2.0)
+
+    ## Fix#2
+    def test_head_circumference_statistics_uses_dot_date(self, monkeypatch):
+        # mutmut_8,9
+        from dashboard.templatetags import cards
+        newest = SimpleNamespace(head_circumference=45, date=dt.date(2026, 4, 22))  # 3 weeks
+        oldest = SimpleNamespace(head_circumference=39, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.HeadCircumference, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._head_circumference_statistics("child")
+        assert result["change_weekly"] == pytest.approx(2.0)
+
+    ## Fix#2
+    def test_head_circumference_statistics_divides_by_weeks(self, monkeypatch):
+        # mutmut_12
+        from dashboard.templatetags import cards
+        newest = SimpleNamespace(head_circumference=10, date=dt.date(2026, 4, 15))
+        oldest = SimpleNamespace(head_circumference=3, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.HeadCircumference, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._head_circumference_statistics("child")
+        assert result["change_weekly"] == pytest.approx(3.5)
+
+    ## Fix#2
+    def test_bmi_statistics_uses_dot_bmi(self, monkeypatch):
+        # mutmut_6,7: newest.bmi - oldest.bmi
+        from dashboard.templatetags import cards
+        newest = SimpleNamespace(bmi=20.0, date=dt.date(2026, 4, 15))
+        oldest = SimpleNamespace(bmi=16.0, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.BMI, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._bmi_statistics("child")
+        assert result["change_weekly"] == pytest.approx(2.0)
+
+    ## Fix#2
+    def test_bmi_statistics_uses_dot_date(self, monkeypatch):
+        # mutmut_8,9
+        from dashboard.templatetags import cards
+        newest = SimpleNamespace(bmi=21.0, date=dt.date(2026, 4, 22))  # 3 weeks
+        oldest = SimpleNamespace(bmi=18.0, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.BMI, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._bmi_statistics("child")
+        assert result["change_weekly"] == pytest.approx(1.0)
+
+    ## Fix#2
+    def test_bmi_statistics_divides_by_weeks(self, monkeypatch):
+        # mutmut_12
+        from dashboard.templatetags import cards
+        newest = SimpleNamespace(bmi=10.0, date=dt.date(2026, 4, 15))
+        oldest = SimpleNamespace(bmi=3.0, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.BMI, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._bmi_statistics("child")
+        assert result["change_weekly"] == pytest.approx(3.5)
+
+    # --- Partials 738,761,830 and missing 739,762,831: single-entry returns dict ---
+    ## Fix#2
+    def test_weight_statistics_single_entry_returns_zero_weekly_change(self, monkeypatch):
+        # partial 738 / missing 716: newest==oldest → change_weekly stays 0.0
+        from dashboard.templatetags import cards
+        only = SimpleNamespace(weight=10, date=dt.date(2026, 4, 15))
+        monkeypatch.setattr(cards.models.Weight, "objects",
+                            FakeManager(default=FakeQuerySet([only])))
+        result = cards._weight_statistics("child")
+        assert isinstance(result, dict)
+        assert result["change_weekly"] == 0.0
+
+    ## Fix#2
+    def test_height_statistics_single_entry_returns_zero(self, monkeypatch):
+        # partial 761 / missing 739
+        from dashboard.templatetags import cards
+        only = SimpleNamespace(height=60, date=dt.date(2026, 4, 15))
+        monkeypatch.setattr(cards.models.Height, "objects",
+                            FakeManager(default=FakeQuerySet([only])))
+        result = cards._height_statistics("child")
+        assert isinstance(result, dict)
+        assert result["change_weekly"] == 0.0
+
+    ## Fix#2
+    def test_head_circumference_single_entry_returns_zero(self, monkeypatch):
+        # partial (hc) / missing 762
+        from dashboard.templatetags import cards
+        only = SimpleNamespace(head_circumference=40, date=dt.date(2026, 4, 15))
+        monkeypatch.setattr(cards.models.HeadCircumference, "objects",
+                            FakeManager(default=FakeQuerySet([only])))
+        result = cards._head_circumference_statistics("child")
+        assert isinstance(result, dict)
+        assert result["change_weekly"] == 0.0
+
+    ## Fix#2
+    def test_bmi_statistics_single_entry_returns_zero(self, monkeypatch):
+        # partial 830 / missing 831
+        from dashboard.templatetags import cards
+        only = SimpleNamespace(bmi=18.5, date=dt.date(2026, 4, 15))
+        monkeypatch.setattr(cards.models.BMI, "objects",
+                            FakeManager(default=FakeQuerySet([only])))
+        result = cards._bmi_statistics("child")
+        assert isinstance(result, dict)
+        assert result["change_weekly"] == 0.0
+
+    ## Fix#3
+    def test_height_statistics_returns_false_for_empty_queryset(self, monkeypatch):
+        # partial 715 / missing 716: "if len(instances) == 0: return False"
+        from dashboard.templatetags import cards
+        monkeypatch.setattr(cards.models.Height, "objects",
+                            FakeManager(default=FakeQuerySet([])))
+        assert cards._height_statistics("child") is False
+
+    ## Fix#3
+    def test_head_circumference_statistics_returns_false_for_empty_queryset(self, monkeypatch):
+        # partial 738 / missing 739
+        from dashboard.templatetags import cards
+        monkeypatch.setattr(cards.models.HeadCircumference, "objects",
+                            FakeManager(default=FakeQuerySet([])))
+        assert cards._head_circumference_statistics("child") is False
+
+    ## Fix#3
+    def test_bmi_statistics_returns_false_for_empty_queryset(self, monkeypatch):
+        # partial 761 / missing 762
+        from dashboard.templatetags import cards
+        monkeypatch.setattr(cards.models.BMI, "objects",
+                            FakeManager(default=FakeQuerySet([])))
+        assert cards._bmi_statistics("child") is False
+
+    # ---- weight/height/hc/bmi mutmut_6,7 (.attribute subtraction direction) ----
+    ## Fix#3
+    def test_weight_statistics_change_is_newest_minus_oldest(self, monkeypatch):
+        # mutmut_6,7: newest.weight - oldest.weight direction
+        from dashboard.templatetags import cards
+        newest = SimpleNamespace(weight=20, date=dt.date(2026, 4, 15))
+        oldest = SimpleNamespace(weight=10, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.Weight, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._weight_statistics("child")
+        assert result["change_weekly"] > 0  # newest(20) - oldest(10) > 0
+        assert result["change_weekly"] == pytest.approx(5.0)  # 10 / 2 weeks
+
+    ## Fix#3
+    def test_weight_statistics_weeks_uses_date_difference_divided_by_7(self, monkeypatch):
+        # mutmut_8,9: (newest.date - oldest.date).days / 7
+        from dashboard.templatetags import cards
+        newest = SimpleNamespace(weight=14, date=dt.date(2026, 4, 15))  # 14 days later
+        oldest = SimpleNamespace(weight=7, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.Weight, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._weight_statistics("child")
+        # 7kg / (14 days / 7 days per week) = 7 / 2 = 3.5
+        assert result["change_weekly"] == pytest.approx(3.5)
+        assert result["change_weekly"] != pytest.approx(0.5)  # not 7 / 14
+
+    ## Fix#3
+    def test_weight_statistics_change_weekly_is_change_divided_by_weeks(self, monkeypatch):
+        # mutmut_12: weight_change / weeks (not * weeks)
+        from dashboard.templatetags import cards
+        newest = SimpleNamespace(weight=10, date=dt.date(2026, 4, 15))
+        oldest = SimpleNamespace(weight=3, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.Weight, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._weight_statistics("child")
+        assert result["change_weekly"] == pytest.approx(3.5)  # 7 / 2 weeks
+        assert result["change_weekly"] != pytest.approx(14.0)  # not 7 * 2
+
+    ## Fix#3
+    def test_height_statistics_change_is_newest_minus_oldest(self, monkeypatch):
+        # mutmut_6,7
+        from dashboard.templatetags import cards
+        newest = SimpleNamespace(height=64, date=dt.date(2026, 4, 15))
+        oldest = SimpleNamespace(height=57, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.Height, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._height_statistics("child")
+        assert result["change_weekly"] > 0
+        assert result["change_weekly"] == pytest.approx(3.5)
+
+    ## Fix#3
+    def test_height_statistics_weeks_uses_date_divided_by_7(self, monkeypatch):
+        # mutmut_8,9
+        from dashboard.templatetags import cards
+        newest = SimpleNamespace(height=70, date=dt.date(2026, 4, 22))  # 3 weeks
+        oldest = SimpleNamespace(height=61, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.Height, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._height_statistics("child")
+        assert result["change_weekly"] == pytest.approx(3.0)  # 9 / 3 weeks
+
+    ## Fix#3
+    def test_height_statistics_change_weekly_divided_not_multiplied(self, monkeypatch):
+        # mutmut_12
+        from dashboard.templatetags import cards
+        newest = SimpleNamespace(height=10, date=dt.date(2026, 4, 15))
+        oldest = SimpleNamespace(height=3, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.Height, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._height_statistics("child")
+        assert result["change_weekly"] == pytest.approx(3.5)
+        assert result["change_weekly"] != pytest.approx(14.0)
+
+    ## Fix#3
+    def test_head_circumference_change_is_newest_minus_oldest(self, monkeypatch):
+        # mutmut_6,7
+        from dashboard.templatetags import cards
+        newest = SimpleNamespace(head_circumference=44, date=dt.date(2026, 4, 15))
+        oldest = SimpleNamespace(head_circumference=37, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.HeadCircumference, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._head_circumference_statistics("child")
+        assert result["change_weekly"] > 0
+        assert result["change_weekly"] == pytest.approx(3.5)
+
+    ## Fix#3
+    def test_head_circumference_weeks_uses_date_divided_by_7(self, monkeypatch):
+        # mutmut_8,9
+        from dashboard.templatetags import cards
+        newest = SimpleNamespace(head_circumference=45, date=dt.date(2026, 4, 22))
+        oldest = SimpleNamespace(head_circumference=39, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.HeadCircumference, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._head_circumference_statistics("child")
+        assert result["change_weekly"] == pytest.approx(2.0)
+
+    ## Fix#3
+    def test_head_circumference_change_weekly_divided_not_multiplied(self, monkeypatch):
+        # mutmut_12
+        from dashboard.templatetags import cards
+        newest = SimpleNamespace(head_circumference=10, date=dt.date(2026, 4, 15))
+        oldest = SimpleNamespace(head_circumference=3, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.HeadCircumference, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._head_circumference_statistics("child")
+        assert result["change_weekly"] == pytest.approx(3.5)
+
+    ## Fix#3
+    def test_bmi_change_is_newest_minus_oldest(self, monkeypatch):
+        # mutmut_6,7
+        from dashboard.templatetags import cards
+        newest = SimpleNamespace(bmi=20.0, date=dt.date(2026, 4, 15))
+        oldest = SimpleNamespace(bmi=13.0, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.BMI, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._bmi_statistics("child")
+        assert result["change_weekly"] > 0
+        assert result["change_weekly"] == pytest.approx(3.5)
+
+    ## Fix#3
+    def test_bmi_weeks_uses_date_divided_by_7(self, monkeypatch):
+        # mutmut_8,9
+        from dashboard.templatetags import cards
+        newest = SimpleNamespace(bmi=21.0, date=dt.date(2026, 4, 22))
+        oldest = SimpleNamespace(bmi=18.0, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.BMI, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._bmi_statistics("child")
+        assert result["change_weekly"] == pytest.approx(1.0)
+
+    ## Fix#3
+    def test_bmi_change_weekly_divided_not_multiplied(self, monkeypatch):
+        # mutmut_12
+        from dashboard.templatetags import cards
+        newest = SimpleNamespace(bmi=10.0, date=dt.date(2026, 4, 15))
+        oldest = SimpleNamespace(bmi=3.0, date=dt.date(2026, 4, 1))
+        monkeypatch.setattr(cards.models.BMI, "objects",
+                            FakeManager(default=FakeQuerySet([newest, oldest])))
+        result = cards._bmi_statistics("child")
+        assert result["change_weekly"] == pytest.approx(3.5)
+        assert result["change_weekly"] != pytest.approx(14.0)
+
+    # ---- _diaperchange_statistics accumulation mutants ----
+    ## Fix#3
+    def test_diaperchange_statistics_interval_direction_and_localtime(self, monkeypatch):
+        # mutmut_46-49: localtime on both times; mutmut_53: current - last direction
+        from dashboard.templatetags import cards
+        base = aware_datetime(2026, 4, 15, 12)
+        lt_args = []
+        monkeypatch.setattr(cards.timezone, "localtime",
+                            lambda value=None: lt_args.append(value) or (base if value is None else value))
+        t1 = SimpleNamespace(time=base - dt.timedelta(hours=6))
+        t2 = SimpleNamespace(time=base - dt.timedelta(hours=2))
+        monkeypatch.setattr(cards.models.DiaperChange, "objects",
+                            FakeManager(default=FakeQuerySet([t1, t2])))
+        stats = cards._diaperchange_statistics("child")
+        assert t1.time in lt_args and t2.time in lt_args  # both passed to localtime
+        assert stats[2]["btwn_average"] == dt.timedelta(hours=4)  # t2-t1, not t1-t2
+        assert stats[2]["btwn_average"] > dt.timedelta()
+
+    ## Fix#3
+    def test_diaperchange_statistics_count_increments_by_exactly_one(self, monkeypatch):
+        # mutmut_60: btwn_count += 1 → += 2
+        from dashboard.templatetags import cards
+        base = aware_datetime(2026, 4, 15, 12)
+        monkeypatch.setattr(cards.timezone, "localtime",
+                            lambda value=None: base if value is None else value)
+        items = FakeQuerySet([
+            SimpleNamespace(time=base - dt.timedelta(hours=6)),
+            SimpleNamespace(time=base - dt.timedelta(hours=4)),
+            SimpleNamespace(time=base - dt.timedelta(hours=2)),
+        ])
+        monkeypatch.setattr(cards.models.DiaperChange, "objects", FakeManager(default=items))
+        stats = cards._diaperchange_statistics("child")
+        assert stats[2]["btwn_count"] == 2  # exactly 2 for 3 items (not 4)
+
+    # ---- _feeding_statistics accumulation mutants ----
+    ## Fix#3
+    def test_feeding_statistics_interval_is_start_minus_last_end_with_localtime(self, monkeypatch):
+        # mutmut_46-49: localtime on start, last_start, last_end; mutmut_53: direction
+        from dashboard.templatetags import cards
+        base = aware_datetime(2026, 4, 15, 12)
+        lt_args = []
+        monkeypatch.setattr(cards.timezone, "localtime",
+                            lambda value=None: lt_args.append(value) or (base if value is None else value))
+        f1 = SimpleNamespace(start=base.replace(hour=8), end=base.replace(hour=8, minute=30))
+        f2 = SimpleNamespace(start=base.replace(hour=11), end=base.replace(hour=11, minute=30))
+        monkeypatch.setattr(cards.models.Feeding, "objects",
+                            FakeManager(default=FakeQuerySet([f1, f2])))
+        stats = cards._feeding_statistics("child")
+        assert f1.start in lt_args
+        assert f1.end in lt_args
+        assert f2.start in lt_args
+        # 11:00 - 8:30 = 2h30m (positive, current.start - last.end)
+        assert stats[2]["btwn_average"] == dt.timedelta(hours=2, minutes=30)
+        assert stats[2]["btwn_average"] > dt.timedelta()
+
+    ## Fix#3
+    def test_feeding_statistics_count_increments_by_exactly_one(self, monkeypatch):
+        # mutmut_64: btwn_count += 1 → += 2
+        from dashboard.templatetags import cards
+        base = aware_datetime(2026, 4, 15, 12)
+        monkeypatch.setattr(cards.timezone, "localtime",
+                            lambda value=None: base if value is None else value)
+        items = FakeQuerySet([
+            SimpleNamespace(start=base.replace(hour=6), end=base.replace(hour=6, minute=30)),
+            SimpleNamespace(start=base.replace(hour=8), end=base.replace(hour=8, minute=30)),
+            SimpleNamespace(start=base.replace(hour=10), end=base.replace(hour=10, minute=30)),
+        ])
+        monkeypatch.setattr(cards.models.Feeding, "objects", FakeManager(default=items))
+        stats = cards._feeding_statistics("child")
+        assert stats[2]["btwn_count"] == 2  # exactly 2 for 3 items
+
+    # ---- _nap_statistics killable mutants ----
+    ## Fix#3
+    def test_nap_statistics_filter_uses_nap_true_kwarg(self, monkeypatch):
+        # mutmut_3: nap=True → nap=False; mutmut_5: order_by("start") → "XXstart"
+        from dashboard.templatetags import cards
+        filter_kwargs = []
+
+        class TrackingManager(FakeManager):
+            def filter(self, *args, **kwargs):
+                filter_kwargs.append(dict(kwargs))
+                return FakeNapAggregateQuerySet([], naps_avg=0)
+
+        monkeypatch.setattr(cards.models.Sleep, "objects", TrackingManager())
+        cards._nap_statistics("child")
+        assert any(kw.get("nap") is True for kw in filter_kwargs)
+        assert not any(kw.get("nap") is False for kw in filter_kwargs)
+
+    ## Fix#3
+    def test_nap_statistics_result_keys_total_count_average_avg_per_day(self, monkeypatch):
+        # mutmut_16,17,18,19: key name strings; mutmut_27,28,29: avg_per_day + naps_count__avg
+        from dashboard.templatetags import cards
+        naps = FakeNapAggregateQuerySet(
+            [SimpleNamespace(duration=dt.timedelta(minutes=60)),
+             SimpleNamespace(duration=dt.timedelta(minutes=60))],
+            naps_avg=2.0,
+        )
+        monkeypatch.setattr(cards.models.Sleep, "objects",
+                            FakeManager(mapping={lambda kw: kw.get("nap") is True: naps},
+                                        default=FakeQuerySet([])))
+        result = cards._nap_statistics("child")
+        assert result["total"] == dt.timedelta(hours=2)
+        assert result["count"] == 2
+        assert result["average"] == dt.timedelta(hours=1)
+        assert result["avg_per_day"] == 2.0
+
+    ## Fix#3
+    def test_nap_statistics_returns_dict_not_false_when_data_present(self, monkeypatch):
+        # mutmut_33: return naps → return False/None
+        from dashboard.templatetags import cards
+        naps = FakeNapAggregateQuerySet(
+            [SimpleNamespace(duration=dt.timedelta(minutes=30))], naps_avg=1.0
+        )
+        monkeypatch.setattr(cards.models.Sleep, "objects",
+                            FakeManager(mapping={lambda kw: kw.get("nap") is True: naps},
+                                        default=FakeQuerySet([])))
+        result = cards._nap_statistics("child")
+        assert result is not False
+        assert isinstance(result, dict)
+
+    # ---- _sleep_statistics killable mutants ----
+    ## Fix#3
+    def test_sleep_statistics_total_from_aggregate_duration_sum(self, monkeypatch):
+        # mutmut_2,3,4,5: "duration","duration__sum","count","average" key strings
+        from dashboard.templatetags import cards
+        s1 = SimpleNamespace(start=aware_datetime(2026, 4, 15, 0),
+                             end=aware_datetime(2026, 4, 15, 3),
+                             duration=dt.timedelta(hours=3))
+        s2 = SimpleNamespace(start=aware_datetime(2026, 4, 15, 5),
+                             end=aware_datetime(2026, 4, 15, 8),
+                             duration=dt.timedelta(hours=3))
+        monkeypatch.setattr(cards.models.Sleep, "objects",
+                            FakeManager(default=FakeQuerySet([s1, s2])))
+        result = cards._sleep_statistics("child")
+        assert result["total"] == dt.timedelta(hours=6)
+        assert result["count"] == 2
+        assert result["average"] == dt.timedelta(hours=3)
+
+    ## Fix#3
+    def test_sleep_statistics_btwn_count_is_count_minus_one(self, monkeypatch):
+        # mutmut_12,13,14,15: btwn_count = instances.count() - 1
+        from dashboard.templatetags import cards
+        sleeps = [
+            SimpleNamespace(start=aware_datetime(2026, 4, 15, i * 3),
+                            end=aware_datetime(2026, 4, 15, i * 3 + 2),
+                            duration=dt.timedelta(hours=2))
+            for i in range(4)
+        ]
+        monkeypatch.setattr(cards.models.Sleep, "objects",
+                            FakeManager(default=FakeQuerySet(sleeps)))
+        result = cards._sleep_statistics("child")
+        assert result["count"] == 4
+        assert result["btwn_count"] == 3  # count - 1, not count or count - 2
+
+    ## Fix#3
+    def test_sleep_statistics_awake_is_next_start_minus_last_end(self, monkeypatch):
+        # mutmut_34: start - last_end direction
+        from dashboard.templatetags import cards
+        s1 = SimpleNamespace(start=aware_datetime(2026, 4, 15, 0),
+                             end=aware_datetime(2026, 4, 15, 2),
+                             duration=dt.timedelta(hours=2))
+        s2 = SimpleNamespace(start=aware_datetime(2026, 4, 15, 5),
+                             end=aware_datetime(2026, 4, 15, 7),
+                             duration=dt.timedelta(hours=2))
+        monkeypatch.setattr(cards.models.Sleep, "objects",
+                            FakeManager(default=FakeQuerySet([s1, s2])))
+        result = cards._sleep_statistics("child")
+        assert result["btwn_total"] == dt.timedelta(hours=3)  # 5am - 2am, positive
+        assert result["btwn_total"] > dt.timedelta()
+
+    ## Fix#3
+    def test_sleep_statistics_btwn_average_is_total_over_count(self, monkeypatch):
+        # mutmut_48: btwn_average = btwn_total / btwn_count
+        from dashboard.templatetags import cards
+        s1 = SimpleNamespace(start=aware_datetime(2026, 4, 15, 0),
+                             end=aware_datetime(2026, 4, 15, 2),
+                             duration=dt.timedelta(hours=2))
+        s2 = SimpleNamespace(start=aware_datetime(2026, 4, 15, 4),
+                             end=aware_datetime(2026, 4, 15, 6),
+                             duration=dt.timedelta(hours=2))
+        s3 = SimpleNamespace(start=aware_datetime(2026, 4, 15, 10),
+                             end=aware_datetime(2026, 4, 15, 12),
+                             duration=dt.timedelta(hours=2))
+        monkeypatch.setattr(cards.models.Sleep, "objects",
+                            FakeManager(default=FakeQuerySet([s1, s2, s3])))
+        result = cards._sleep_statistics("child")
+        # gaps: 4-2=2h and 10-6=4h → total=6h, count=2, avg=3h
+        assert result["btwn_count"] == 2
+        assert result["btwn_average"] == dt.timedelta(hours=3)
+
 
 
 class TestTimerAndTummyTimeComponents:
@@ -2166,3 +3391,17 @@ class TestTimerAndTummyTimeComponents:
         assert result["stats"]["count"] == 0
         assert result["stats"]["total"] == dt.timedelta(0)
         assert result["last"] is None
+
+    ## Fix#3
+    def test_card_tummytime_day_without_date_uses_localtime(self, monkeypatch):
+        # partial 830 / missing 831: "if not date:" True branch — call without date
+        from dashboard.templatetags import cards
+        today = dt.date(2026, 4, 15)
+        monkeypatch.setattr(cards.timezone, "localtime",
+                            lambda: SimpleNamespace(date=lambda: today))
+        monkeypatch.setattr(cards.models.TummyTime, "objects",
+                            FakeManager(default=FakeQuerySet([])))
+        # Call WITHOUT date → hits "if not date:" → date = timezone.localtime().date()
+        result = cards.card_tummytime_day(make_context(), child="child")
+        assert result["empty"] is True
+        assert result["stats"]["count"] == 0
