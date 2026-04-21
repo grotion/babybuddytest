@@ -2,6 +2,20 @@ from .base import *
 
 SECRET_KEY = "TESTS"
 
+# Static files
+# https://docs.djangoproject.com/en/5.0/howto/static-files/
+#
+# Override the manifest-strict WhiteNoise backend inherited from base so that
+# test runs don't need a pre-built `static/` tree.  Plain StaticFilesStorage
+# resolves `{% static %}` tags by string concatenation instead of looking the
+# file up in `staticfiles.json`, which means tests that render templates like
+# babybuddy/base.html (which references /static/babybuddy/root/apple-touch-icon.png
+# etc.) no longer crash when `collectstatic`/`gulp build` hasn't been run.
+
+STORAGES["staticfiles"][
+    "BACKEND"
+] = "django.contrib.staticfiles.storage.StaticFilesStorage"
+
 # Password hasher configuration
 # See https://docs.djangoproject.com/en/5.0/ref/settings/#password-hashers
 # See https://docs.djangoproject.com/en/5.0/topics/testing/overview/#password-hashing
