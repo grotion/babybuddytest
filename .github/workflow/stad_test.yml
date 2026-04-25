@@ -1,0 +1,70 @@
+name: STaD_Tests
+
+on:
+  push:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+
+    env:
+      DJANGO_SETTINGS_MODULE: babybuddy.settings.test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install dependencies
+        run: |
+          pip install pipenv
+          pipenv install --dev
+          npm install -g gulp-cli
+          npm install
+
+      - name: Run pytest
+        run: pipenv run pytest stad_test
+
+  mutmut:
+    runs-on: ubuntu-latest
+    needs: pytest
+
+    env:
+      DJANGO_SETTINGS_MODULE: babybuddy.settings.test
+
+    strategy:
+      matrix:
+        component: [api, babybuddy, core, dashboard]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install dependencies
+        run: |
+          pip install pipenv
+          pipenv install --dev
+          pipenv install --dev mutmut
+          npm install -g gulp-cli
+          npm install
+
+      - name: Copy config
+        run: cp stad_test/${{ matrix.component }}/setup.cfg .
+
+      - name: Run mutmut
+        run: |
+          pipenv run mutmut run
+          pipenv run mutmut results
