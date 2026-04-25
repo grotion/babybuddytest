@@ -66,5 +66,5 @@ jobs:
 
       - name: Run mutmut
         run: |
-          pipenv run mutmut run
+          pipenv run mutmut run --no-progress
           pipenv run mutmut results
