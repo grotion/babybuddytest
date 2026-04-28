@@ -38,7 +38,6 @@ from django.test import SimpleTestCase
 
 from core import models as core_models
 
-
 #############################################
 # Original URL-contract tests (kept intact) #
 #############################################
@@ -131,21 +130,29 @@ class APIAuthBlackBoxTests(APITestCase):
     def test_anonymous_cannot_list_children(self):
         # Caller without credentials should not be able to enumerate data.
         resp = self.client.get(reverse("api:child-list"))
-        self.assertIn(resp.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
+        self.assertIn(
+            resp.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN)
+        )
 
     def test_anonymous_cannot_read_profile(self):
         resp = self.client.get(reverse("api:profile"))
-        self.assertIn(resp.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
+        self.assertIn(
+            resp.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN)
+        )
 
     def test_invalid_token_is_rejected(self):
         self.client.credentials(HTTP_AUTHORIZATION="Token not-a-real-token")
         resp = self.client.get(reverse("api:child-list"))
-        self.assertIn(resp.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
+        self.assertIn(
+            resp.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN)
+        )
 
     def test_malformed_auth_header_is_rejected(self):
         self.client.credentials(HTTP_AUTHORIZATION="NotToken nonsense")
         resp = self.client.get(reverse("api:child-list"))
-        self.assertIn(resp.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
+        self.assertIn(
+            resp.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN)
+        )
 
 
 #############################################
@@ -219,7 +226,9 @@ class APIChildBlackBoxTests(_AuthedAPITestCase):
         }
         first = self.client.post(reverse("api:child-list"), data=payload, format="json")
         self.assertEqual(first.status_code, status.HTTP_201_CREATED, first.content)
-        second = self.client.post(reverse("api:child-list"), data=payload, format="json")
+        second = self.client.post(
+            reverse("api:child-list"), data=payload, format="json"
+        )
         # A duplicate should be a validation problem, not a server error.
         self.assertEqual(second.status_code, status.HTTP_400_BAD_REQUEST)
 
@@ -308,7 +317,9 @@ class APIFeedingBlackBoxTests(_AuthedAPITestCase):
             format="json",
         )
         # Feedings for the same child cannot overlap in time.
-        self.assertEqual(second.status_code, status.HTTP_400_BAD_REQUEST, second.content)
+        self.assertEqual(
+            second.status_code, status.HTTP_400_BAD_REQUEST, second.content
+        )
 
     @pytest.mark.found_bug
     @pytest.mark.xfail(
@@ -485,7 +496,9 @@ class APISleepBlackBoxTests(_AuthedAPITestCase):
             ),
             format="json",
         )
-        self.assertEqual(second.status_code, status.HTTP_400_BAD_REQUEST, second.content)
+        self.assertEqual(
+            second.status_code, status.HTTP_400_BAD_REQUEST, second.content
+        )
 
 
 #############################################
@@ -723,9 +736,7 @@ class APIMeasurementsBlackBoxTests(_AuthedAPITestCase):
 
     @pytest.mark.found_bug
     @pytest.mark.xfail(
-        reason=(
-            "Bug: HeadCircumference has no positive-value validator."
-        ),
+        reason=("Bug: HeadCircumference has no positive-value validator."),
         strict=False,
     )
     def test_head_circumference_negative_should_be_rejected(self):
@@ -842,7 +853,9 @@ class APITimerBlackBoxTests(_AuthedAPITestCase):
         ),
         strict=False,
     )
-    def test_feeding_with_timer_and_explicit_start_end_should_not_silently_override(self):
+    def test_feeding_with_timer_and_explicit_start_end_should_not_silently_override(
+        self,
+    ):
         # Create a timer owned by our user.
         t_resp = self.client.post(
             reverse("api:timer-list"),
@@ -884,3 +897,484 @@ class APITimerBlackBoxTests(_AuthedAPITestCase):
             )
         else:
             self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+#####################################################################
+# Parametric blackbox expansions                                     #
+#                                                                    #
+# Author: Samson Cournane                                            #
+#                                                                    #
+# The class-based tests above cover one concrete case per scenario.  #
+# The pytest-style functions below enumerate whole equivalence       #
+# classes using @pytest.mark.parametrize so each rejection /         #
+# acceptance rule is proven against every member of the class, not   #
+# just a single representative value.  This is the blackbox analogue #
+# of boundary-value + partition testing: one rule -> many inputs.    #
+#####################################################################
+
+
+@pytest.fixture
+def api_child(db):
+    """A Child row usable as `child=<id>` in POST payloads."""
+    return core_models.Child.objects.create(
+        first_name="Parametric",
+        last_name="Kid",
+        birth_date=datetime.date(2024, 1, 1),
+    )
+
+
+@pytest.fixture
+def authed_client(db):
+    """Token-authed APIClient for a superuser."""
+    User = get_user_model()
+    user, _ = User.objects.get_or_create(
+        username="parametric_caregiver",
+        defaults={"is_staff": True, "is_superuser": True},
+    )
+    user.set_password("Sup3r-Safe-Pwd!")
+    user.save()
+    token, _ = Token.objects.get_or_create(user=user)
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+    return client
+
+
+def _now_iso(offset_seconds: int = 0) -> str:
+    return (
+        timezone.localtime() + datetime.timedelta(seconds=offset_seconds)
+    ).isoformat()
+
+
+# ---------------------------------------------------------------------------
+# A. Anonymous access to list endpoints - every route should reject anon.
+# ---------------------------------------------------------------------------
+
+
+ANON_GATED_ENDPOINTS = [
+    "api:child-list",
+    "api:feeding-list",
+    "api:sleep-list",
+    "api:pumping-list",
+    "api:diaperchange-list",
+    "api:note-list",
+    "api:temperature-list",
+    "api:weight-list",
+    "api:bmi-list",
+    "api:height-list",
+    "api:headcircumference-list",
+    "api:tag-list",
+    "api:timer-list",
+    "api:tummytime-list",
+]
+
+
+@pytest.mark.parametrize("route_name", ANON_GATED_ENDPOINTS)
+def test_anonymous_cannot_list_endpoint(route_name, db):
+    client = APIClient()  # no credentials
+    resp = client.get(reverse(route_name))
+    assert resp.status_code in (
+        status.HTTP_401_UNAUTHORIZED,
+        status.HTTP_403_FORBIDDEN,
+    ), f"{route_name} should gate anonymous GET, got {resp.status_code}"
+
+
+# ---------------------------------------------------------------------------
+# B. Bad / malformed auth headers across endpoints.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "bad_header",
+    [
+        "Token ",  # empty token
+        "Token not-a-real-token",  # garbage
+        "Bearer something",  # wrong scheme
+        "NotToken xyz",  # unknown scheme
+        "token lowercase-scheme",  # case-sensitivity sanity
+        " Token extra-leading-space",  # malformed
+    ],
+)
+def test_malformed_auth_headers_are_rejected(bad_header, db):
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION=bad_header)
+    resp = client.get(reverse("api:child-list"))
+    assert resp.status_code in (
+        status.HTTP_401_UNAUTHORIZED,
+        status.HTTP_403_FORBIDDEN,
+    ), f"auth header {bad_header!r} should be rejected, got {resp.status_code}"
+
+
+# ---------------------------------------------------------------------------
+# C. Child create - invalid birth_date partitions.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "bad_birth_date",
+    [
+        "",  # empty
+        "not-a-date",  # not ISO
+        "2024/01/01",  # wrong separator
+        "2024-13-01",  # invalid month
+        "2024-02-30",  # invalid day
+        "abcd-ef-gh",  # total garbage
+    ],
+)
+def test_child_rejects_malformed_birth_date(authed_client, bad_birth_date):
+    resp = authed_client.post(
+        reverse("api:child-list"),
+        data={"first_name": "Bad", "last_name": "Date", "birth_date": bad_birth_date},
+        format="json",
+    )
+    assert resp.status_code == status.HTTP_400_BAD_REQUEST, resp.content
+
+
+# ---------------------------------------------------------------------------
+# D. Child create - invalid first_name partitions.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "bad_first_name",
+    [
+        "",  # empty
+        "   ",  # whitespace only (blank after strip)
+        None,  # null
+        "x" * 500,  # exceeds max_length=255
+    ],
+)
+def test_child_rejects_bad_first_name(authed_client, bad_first_name):
+    resp = authed_client.post(
+        reverse("api:child-list"),
+        data={
+            "first_name": bad_first_name,
+            "last_name": "Ok",
+            "birth_date": "2024-01-01",
+        },
+        format="json",
+    )
+    assert resp.status_code == status.HTTP_400_BAD_REQUEST, resp.content
+
+
+# ---------------------------------------------------------------------------
+# E. Feeding - every valid (type, method) combination is accepted.
+# ---------------------------------------------------------------------------
+
+
+VALID_FEEDING_TYPES = [
+    "breast milk",
+    "formula",
+    "fortified breast milk",
+    "solid food",
+]
+VALID_FEEDING_METHODS = [
+    "bottle",
+    "left breast",
+    "right breast",
+    "both breasts",
+    "parent fed",
+    "self fed",
+]
+
+
+@pytest.mark.parametrize("feeding_type", VALID_FEEDING_TYPES)
+def test_feeding_accepts_every_valid_type(authed_client, api_child, feeding_type):
+    now = timezone.localtime()
+    resp = authed_client.post(
+        reverse("api:feeding-list"),
+        data={
+            "child": api_child.id,
+            "start": (now - datetime.timedelta(minutes=30)).isoformat(),
+            "end": (now - datetime.timedelta(minutes=10)).isoformat(),
+            "type": feeding_type,
+            "method": "bottle",
+        },
+        format="json",
+    )
+    assert resp.status_code == status.HTTP_201_CREATED, resp.content
+
+
+@pytest.mark.parametrize("feeding_method", VALID_FEEDING_METHODS)
+def test_feeding_accepts_every_valid_method(authed_client, api_child, feeding_method):
+    now = timezone.localtime()
+    resp = authed_client.post(
+        reverse("api:feeding-list"),
+        data={
+            "child": api_child.id,
+            "start": (now - datetime.timedelta(minutes=30)).isoformat(),
+            "end": (now - datetime.timedelta(minutes=10)).isoformat(),
+            "type": "breast milk",
+            "method": feeding_method,
+        },
+        format="json",
+    )
+    assert resp.status_code == status.HTTP_201_CREATED, resp.content
+
+
+@pytest.mark.parametrize(
+    "bad_type",
+    ["unicorn milk", "", "BREAST MILK", "breast_milk", "soda"],
+)
+def test_feeding_rejects_invalid_type(authed_client, api_child, bad_type):
+    now = timezone.localtime()
+    resp = authed_client.post(
+        reverse("api:feeding-list"),
+        data={
+            "child": api_child.id,
+            "start": (now - datetime.timedelta(minutes=30)).isoformat(),
+            "end": (now - datetime.timedelta(minutes=10)).isoformat(),
+            "type": bad_type,
+            "method": "bottle",
+        },
+        format="json",
+    )
+    assert resp.status_code == status.HTTP_400_BAD_REQUEST, resp.content
+
+
+@pytest.mark.parametrize(
+    "bad_method",
+    ["hyperdrive", "", "BOTTLE", "syringe", "iv drip"],
+)
+def test_feeding_rejects_invalid_method(authed_client, api_child, bad_method):
+    now = timezone.localtime()
+    resp = authed_client.post(
+        reverse("api:feeding-list"),
+        data={
+            "child": api_child.id,
+            "start": (now - datetime.timedelta(minutes=30)).isoformat(),
+            "end": (now - datetime.timedelta(minutes=10)).isoformat(),
+            "type": "breast milk",
+            "method": bad_method,
+        },
+        format="json",
+    )
+    assert resp.status_code == status.HTTP_400_BAD_REQUEST, resp.content
+
+
+# ---------------------------------------------------------------------------
+# F. DiaperChange colors - the canonical four are accepted; others are not.
+# ---------------------------------------------------------------------------
+
+
+VALID_DIAPER_COLORS = ["black", "brown", "green", "yellow"]
+
+
+@pytest.mark.parametrize("color", VALID_DIAPER_COLORS)
+def test_diaper_accepts_every_valid_color(authed_client, api_child, color):
+    resp = authed_client.post(
+        reverse("api:diaperchange-list"),
+        data={
+            "child": api_child.id,
+            "time": (timezone.localtime() - datetime.timedelta(minutes=5)).isoformat(),
+            "wet": False,
+            "solid": True,
+            "color": color,
+        },
+        format="json",
+    )
+    assert resp.status_code == status.HTTP_201_CREATED, resp.content
+
+
+@pytest.mark.parametrize(
+    "bad_color",
+    ["rainbow", "BLACK", "#000000", "red", "grey", "purple"],
+)
+def test_diaper_rejects_invalid_color(authed_client, api_child, bad_color):
+    resp = authed_client.post(
+        reverse("api:diaperchange-list"),
+        data={
+            "child": api_child.id,
+            "time": (timezone.localtime() - datetime.timedelta(minutes=5)).isoformat(),
+            "wet": False,
+            "solid": True,
+            "color": bad_color,
+        },
+        format="json",
+    )
+    assert resp.status_code == status.HTTP_400_BAD_REQUEST, resp.content
+
+
+# ---------------------------------------------------------------------------
+# G. Measurements - every measurement endpoint must reject a future date.
+# ---------------------------------------------------------------------------
+
+
+MEASUREMENT_DATE_ENDPOINTS = [
+    ("api:weight-list", "weight", 4.2),
+    ("api:height-list", "height", 55.0),
+    ("api:bmi-list", "bmi", 15.0),
+    ("api:headcircumference-list", "head_circumference", 36.0),
+]
+
+
+@pytest.mark.parametrize("route,field,value", MEASUREMENT_DATE_ENDPOINTS)
+def test_measurement_rejects_future_date(authed_client, api_child, route, field, value):
+    future = (timezone.localdate() + datetime.timedelta(days=3)).isoformat()
+    resp = authed_client.post(
+        reverse(route),
+        data={"child": api_child.id, field: value, "date": future},
+        format="json",
+    )
+    assert resp.status_code == status.HTTP_400_BAD_REQUEST, resp.content
+
+
+@pytest.mark.parametrize("route,field,value", MEASUREMENT_DATE_ENDPOINTS)
+def test_measurement_accepts_today(authed_client, api_child, route, field, value):
+    today = timezone.localdate().isoformat()
+    resp = authed_client.post(
+        reverse(route),
+        data={"child": api_child.id, field: value, "date": today},
+        format="json",
+    )
+    assert resp.status_code == status.HTTP_201_CREATED, resp.content
+
+
+@pytest.mark.parametrize(
+    "route,field,value",
+    MEASUREMENT_DATE_ENDPOINTS + [("api:temperature-list", "temperature", 37.2)],
+)
+def test_measurement_missing_child_is_rejected(authed_client, route, field, value):
+    today = timezone.localdate().isoformat()
+    resp = authed_client.post(
+        reverse(route),
+        data={field: value, "date": today},
+        format="json",
+    )
+    assert resp.status_code == status.HTTP_400_BAD_REQUEST, resp.content
+
+
+# ---------------------------------------------------------------------------
+# H. Tag colors - a real hex regex is the spec; exercise both sides.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "color",
+    ["#000000", "#ffffff", "#AaBbCc", "#123abc"],
+)
+def test_tag_accepts_valid_hex_color(authed_client, color):
+    resp = authed_client.post(
+        reverse("api:tag-list"),
+        data={"name": f"ok-{color.strip('#')}", "color": color},
+        format="json",
+    )
+    assert resp.status_code == status.HTTP_201_CREATED, resp.content
+
+
+@pytest.mark.parametrize(
+    "bad_color",
+    [
+        "FFFFFF",  # missing #
+        "#FFF",  # 3-digit shorthand (spec requires 6)
+        "#GGGGGG",  # non-hex characters
+        "#1234567",  # 7 chars (should be 6)
+        "#FF000080",  # 8 chars with alpha
+        "red",  # not hex at all
+        "",  # empty
+    ],
+)
+def test_tag_rejects_bad_hex_color(authed_client, bad_color):
+    resp = authed_client.post(
+        reverse("api:tag-list"),
+        data={"name": "bad", "color": bad_color},
+        format="json",
+    )
+    assert resp.status_code == status.HTTP_400_BAD_REQUEST, resp.content
+
+
+# ---------------------------------------------------------------------------
+# I. Required-field matrix: each POST endpoint rejects requests with only
+# a single required field supplied.  Surfaces inconsistent error surfaces.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "route,sole_field,value",
+    [
+        ("api:feeding-list", "type", "breast milk"),
+        ("api:sleep-list", "child", 1),
+        ("api:pumping-list", "amount", 120),
+        ("api:diaperchange-list", "wet", True),
+        ("api:note-list", "note", "partial"),
+        ("api:weight-list", "weight", 4.2),
+        ("api:bmi-list", "bmi", 15),
+        ("api:height-list", "height", 55),
+        ("api:headcircumference-list", "head_circumference", 35),
+        ("api:temperature-list", "temperature", 37),
+    ],
+)
+def test_endpoint_rejects_partial_payload(
+    authed_client, api_child, route, sole_field, value
+):
+    resp = authed_client.post(
+        reverse(route),
+        data={sole_field: value},
+        format="json",
+    )
+    assert resp.status_code == status.HTTP_400_BAD_REQUEST, resp.content
+
+
+# ---------------------------------------------------------------------------
+# J. Timer restart rejects non-PATCH methods.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("method", ["get", "put", "delete", "post"])
+def test_timer_restart_rejects_wrong_method(authed_client, api_child, method):
+    created = authed_client.post(
+        reverse("api:timer-list"),
+        data={
+            "child": api_child.id,
+            "start": (timezone.localtime() - datetime.timedelta(minutes=5)).isoformat(),
+        },
+        format="json",
+    )
+    assert created.status_code == status.HTTP_201_CREATED, created.content
+    timer_id = created.json()["id"]
+    resp = getattr(authed_client, method)(reverse("api:timer-restart", args=[timer_id]))
+    # restart is PATCH-only in the API contract.
+    assert resp.status_code in (
+        status.HTTP_405_METHOD_NOT_ALLOWED,
+        status.HTTP_404_NOT_FOUND,
+        status.HTTP_400_BAD_REQUEST,
+    ), f"method {method!r} should not be accepted, got {resp.status_code}"
+
+
+# ---------------------------------------------------------------------------
+# K. GET on list endpoints returns a paginated envelope for every resource.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("route_name", ANON_GATED_ENDPOINTS)
+def test_authed_list_returns_envelope(authed_client, route_name):
+    resp = authed_client.get(reverse(route_name))
+    assert resp.status_code == status.HTTP_200_OK, resp.content
+    body = resp.json()
+    # DRF default pagination envelope.
+    for key in ("count", "results"):
+        assert key in body, (
+            f"list envelope from {route_name} is missing `{key}` "
+            f"(body keys: {list(body.keys())})"
+        )
+
+
+# ---------------------------------------------------------------------------
+# L. Note length - contract is 255-char max.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("length", [1, 50, 254, 255])
+def test_note_accepts_length_up_to_limit(authed_client, api_child, length):
+    resp = authed_client.post(
+        reverse("api:note-list"),
+        data={
+            "child": api_child.id,
+            "note": "x" * length,
+            "time": (timezone.localtime() - datetime.timedelta(minutes=1)).isoformat(),
+        },
+        format="json",
+    )
+    # A clean-contract response is 201.  Some legacy deployments allow longer
+    # notes via an open TextField - in that case 201 is still expected, which
+    # is why we constrain the upper bound to 255 above.
+    assert resp.status_code == status.HTTP_201_CREATED, resp.content

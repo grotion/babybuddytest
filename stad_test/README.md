@@ -47,7 +47,6 @@ pipenv install --dev pytest pytest-django pytest-cov mutmut
 
 ---
 
-
 ## 5. Set Django settings
 
 <pre>
@@ -56,7 +55,7 @@ export DJANGO_SETTINGS_MODULE=babybuddy.settings.development
 
 ---
 
-## (Optional) 6. Run application 
+## (Optional) 6. Run application
 
 <pre>
 gulp migrate
@@ -74,6 +73,7 @@ admin / admin
 # 🔁 RUN EVERY TIME (TESTING)
 
 ## Before running
+
 <pre>
 export DJANGO_SETTINGS_MODULE=babybuddy.settings.development
 </pre>

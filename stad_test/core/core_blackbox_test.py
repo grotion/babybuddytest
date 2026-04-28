@@ -128,7 +128,9 @@ class ChildFormBlackBoxTests(_AuthedCoreTestCase):
         )
         # If the form correctly rejected, it re-renders with 200; a 302
         # redirect indicates the child was created successfully (bug).
-        self.assertEqual(resp.status_code, 200, f"unexpected redirect: got {resp.status_code}")
+        self.assertEqual(
+            resp.status_code, 200, f"unexpected redirect: got {resp.status_code}"
+        )
 
 
 #########################################
@@ -196,9 +198,7 @@ class FeedingFormBlackBoxTests(_AuthedCoreTestCase):
         resp = self.client.post(
             reverse("core:feeding-add"),
             data=self._payload(
-                start=(now - datetime.timedelta(minutes=10)).strftime(
-                    "%Y-%m-%d %H:%M"
-                ),
+                start=(now - datetime.timedelta(minutes=10)).strftime("%Y-%m-%d %H:%M"),
                 end=(now - datetime.timedelta(minutes=30)).strftime("%Y-%m-%d %H:%M"),
             ),
         )
@@ -221,7 +221,9 @@ class FeedingFormBlackBoxTests(_AuthedCoreTestCase):
         )
         # If rejected, status is 200 with errorlist. If silently accepted,
         # the view redirects (302).
-        self.assertEqual(resp.status_code, 200, "form unexpectedly accepted negative amount")
+        self.assertEqual(
+            resp.status_code, 200, "form unexpectedly accepted negative amount"
+        )
 
 
 #########################################
@@ -292,7 +294,7 @@ class ChildLookupBlackBoxTests(_AuthedCoreTestCase):
     @pytest.mark.xfail(
         reason=(
             "Bug: The custom 404 template babybuddy/templates/error/404.html "
-            "line 9 is malformed (`|add\"</code>\"` is missing a colon), so "
+            'line 9 is malformed (`|add"</code>"` is missing a colon), so '
             "every 404 response tries to render that template and fails with "
             "TemplateSyntaxError: 'add requires 2 arguments, 1 provided'. "
             "Real users hitting a non-existent child URL see a 500 instead "
@@ -320,7 +322,7 @@ class ChildLookupBlackBoxTests(_AuthedCoreTestCase):
     @pytest.mark.xfail(
         reason=(
             "Bug: babybuddy/templates/error/404.html has a template-tag "
-            "typo (`|add\"</code>\"` instead of `|add:\"</code>\"`). The "
+            'typo (`|add"</code>"` instead of `|add:"</code>"`). The '
             "template fails to parse and any 404 becomes a 500."
         ),
         strict=False,
@@ -328,3 +330,623 @@ class ChildLookupBlackBoxTests(_AuthedCoreTestCase):
     def test_arbitrary_unknown_url_returns_clean_404(self):
         resp = self.client.get("/this-page-truly-does-not-exist/")
         self.assertEqual(resp.status_code, 404)
+
+
+#####################################################################
+# Parametric blackbox expansions                                     #
+#                                                                    #
+# Author: Samson Cournane                                            #
+#                                                                    #
+# Parametric enumeration of equivalence classes for the core HTML    #
+# surface: list-view access across resources, form rejections across #
+# field partitions, and slug-lookup safety on every detail/edit URL. #
+#####################################################################
+
+
+@pytest.fixture
+def core_child(db):
+    return core_models.Child.objects.create(
+        first_name="Param",
+        last_name="Core",
+        birth_date=datetime.date(2024, 3, 1),
+    )
+
+
+@pytest.fixture
+def core_logged_in_client(db):
+    User = get_user_model()
+    user = User.objects.create_user(username="core_param", password="Core-Pwd-1!")
+    user.user_permissions.set(Permission.objects.all())
+    user.save()
+    client = Client()
+    client.login(username="core_param", password="Core-Pwd-1!")
+    return client
+
+
+def _fmt_dt(dt):
+    return dt.strftime("%Y-%m-%d %H:%M")
+
+
+# ---------------------------------------------------------------------------
+# A. Every core list/add route redirects anonymous callers to login.
+# ---------------------------------------------------------------------------
+
+
+ANONYMOUS_CORE_ROUTES = [
+    "core:child-list",
+    "core:child-add",
+    "core:feeding-list",
+    "core:feeding-add",
+    "core:sleep-list",
+    "core:sleep-add",
+    "core:diaperchange-list",
+    "core:diaperchange-add",
+    "core:note-list",
+    "core:note-add",
+    "core:pumping-list",
+    "core:pumping-add",
+    "core:temperature-list",
+    "core:temperature-add",
+    "core:weight-list",
+    "core:weight-add",
+    "core:timer-list",
+    "core:timeline",
+]
+
+
+@pytest.mark.parametrize("route_name", ANONYMOUS_CORE_ROUTES)
+def test_anonymous_core_route_redirects_to_login(db, route_name):
+    client = Client()
+    resp = client.get(reverse(route_name))
+    assert resp.status_code == 302, f"{route_name} got {resp.status_code}"
+    assert (
+        "login" in resp["Location"].lower()
+    ), f"{route_name} redirected to {resp['Location']!r}"
+
+
+# ---------------------------------------------------------------------------
+# B. The same routes render 200 for a fully-permissioned user.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("route_name", ANONYMOUS_CORE_ROUTES)
+def test_authed_core_route_renders_or_redirects(core_logged_in_client, route_name):
+    resp = core_logged_in_client.get(reverse(route_name))
+    assert resp.status_code in (
+        200,
+        302,
+    ), f"{route_name} responded {resp.status_code}, expected 200 or 302"
+
+
+# ---------------------------------------------------------------------------
+# C. Child form - invalid birth_date partitions all leave us on the form.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "bad_birth_date",
+    [
+        "",  # empty
+        "not-a-date",  # garbage
+        "2024/01/01",  # wrong separator
+        "2024-13-01",  # invalid month
+        "2024-02-30",  # invalid day
+    ],
+)
+def test_child_form_rejects_bad_birth_date(core_logged_in_client, bad_birth_date):
+    resp = core_logged_in_client.post(
+        reverse("core:child-add"),
+        data={"first_name": "Bad", "last_name": "Date", "birth_date": bad_birth_date},
+    )
+    # Django re-renders the form with an errorlist on validation failure.
+    assert (
+        resp.status_code == 200
+    ), f"birth_date={bad_birth_date!r} got {resp.status_code}, expected 200"
+
+
+# ---------------------------------------------------------------------------
+# D. Feeding form - malformed datetimes, invalid types and invalid methods.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "bad_type",
+    ["unicorn milk", "BREAST MILK", "breast_milk", "", "soda"],
+)
+def test_feeding_form_rejects_invalid_type(core_logged_in_client, core_child, bad_type):
+    now = timezone.localtime()
+    resp = core_logged_in_client.post(
+        reverse("core:feeding-add"),
+        data={
+            "child": core_child.id,
+            "start": _fmt_dt(now - datetime.timedelta(minutes=30)),
+            "end": _fmt_dt(now - datetime.timedelta(minutes=10)),
+            "type": bad_type,
+            "method": "bottle",
+        },
+    )
+    assert resp.status_code == 200, f"feeding type={bad_type!r} got {resp.status_code}"
+
+
+@pytest.mark.parametrize(
+    "bad_method",
+    ["hyperdrive", "BOTTLE", "", "syringe", "iv drip"],
+)
+def test_feeding_form_rejects_invalid_method(
+    core_logged_in_client, core_child, bad_method
+):
+    now = timezone.localtime()
+    resp = core_logged_in_client.post(
+        reverse("core:feeding-add"),
+        data={
+            "child": core_child.id,
+            "start": _fmt_dt(now - datetime.timedelta(minutes=30)),
+            "end": _fmt_dt(now - datetime.timedelta(minutes=10)),
+            "type": "breast milk",
+            "method": bad_method,
+        },
+    )
+    assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# E. Sleep form - bad start/end ordering variants.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "start_offset_min,end_offset_min",
+    [
+        (-30, -60),  # end before start
+        pytest.param(
+            -30,
+            -30,  # zero duration
+            marks=[
+                pytest.mark.found_bug,
+                pytest.mark.xfail(
+                    reason=(
+                        "Bug: zero-duration sleep (start == end) is silently "
+                        "accepted and redirects (302) instead of re-rendering "
+                        "the form with an errorlist."
+                    ),
+                    strict=False,
+                ),
+            ],
+        ),
+        (10, 20),  # start in the future
+        (-30, 60),  # end in the future
+    ],
+)
+def test_sleep_form_rejects_bad_durations(
+    core_logged_in_client, core_child, start_offset_min, end_offset_min
+):
+    now = timezone.localtime()
+    resp = core_logged_in_client.post(
+        reverse("core:sleep-add"),
+        data={
+            "child": core_child.id,
+            "start": _fmt_dt(now + datetime.timedelta(minutes=start_offset_min)),
+            "end": _fmt_dt(now + datetime.timedelta(minutes=end_offset_min)),
+        },
+    )
+    # Any validation rejection re-renders the add form (200).  A successful
+    # save redirects (302) - that's the failure mode this test guards against.
+    assert resp.status_code == 200, (
+        f"sleep(start+{start_offset_min}m,end+{end_offset_min}m) got "
+        f"{resp.status_code}, expected 200 errorlist"
+    )
+
+
+# ---------------------------------------------------------------------------
+# F. Detail and update views for an unknown child slug on every resource.
+# We expect a 404 (or a redirect - both would be fine for a non-existent
+# resource).  The failure mode we are guarding against is a 500.
+# ---------------------------------------------------------------------------
+
+
+SLUG_ROUTES = [
+    "core:child",
+    "core:child-update",
+    "core:child-delete",
+]
+
+
+@pytest.mark.found_bug
+@pytest.mark.xfail(
+    reason=(
+        "Bug: custom 404 template babybuddy/templates/error/404.html has a "
+        'malformed `|add"</code>"` (missing colon), so every 404 crashes '
+        "the template engine and bubbles up as a 500.  Until that template "
+        "is fixed, unknown-slug routes surface as 500 instead of 404."
+    ),
+    strict=False,
+)
+@pytest.mark.parametrize("route_name", SLUG_ROUTES)
+def test_unknown_child_slug_never_500s(core_logged_in_client, route_name):
+    resp = core_logged_in_client.get(reverse(route_name, args=["no-such-kid-xyz"]))
+    assert (
+        resp.status_code < 500
+    ), f"{route_name}(no-such-kid-xyz) returned {resp.status_code}, should be <500"
+
+
+# ---------------------------------------------------------------------------
+# G. Note form - length partitions up to limit are accepted.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("length", [1, 10, 100, 255])
+def test_note_form_accepts_length_up_to_limit(
+    core_logged_in_client, core_child, length
+):
+    now = timezone.localtime()
+    resp = core_logged_in_client.post(
+        reverse("core:note-add"),
+        data={
+            "child": core_child.id,
+            "note": "x" * length,
+            "time": _fmt_dt(now - datetime.timedelta(minutes=1)),
+        },
+    )
+    # Valid note -> redirect to list; never 5xx.
+    assert resp.status_code in (
+        200,
+        302,
+    ), f"note length={length} got {resp.status_code}"
+
+
+# ---------------------------------------------------------------------------
+# H. Timer restart - various HTTP method outcomes.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("method", ["post", "put", "delete", "patch"])
+def test_timer_restart_response_categories(core_logged_in_client, core_child, method):
+    User = get_user_model()
+    user = User.objects.get(username="core_param")
+    timer = core_models.Timer.objects.create(
+        child=core_child,
+        user=user,
+        start=timezone.now() - datetime.timedelta(minutes=30),
+    )
+    resp = getattr(core_logged_in_client, method)(
+        reverse("core:timer-restart", args=[timer.id])
+    )
+    # Only constraint for blackbox: never a 5xx.
+    assert (
+        resp.status_code < 500
+    ), f"restart via {method.upper()} produced {resp.status_code}"
+
+
+# ---------------------------------------------------------------------------
+# I. List views accept `child=<slug>` query param without crashing for every
+#    valid resource that supports the filter.
+# ---------------------------------------------------------------------------
+
+
+FILTERABLE_LIST_ROUTES = [
+    "core:feeding-list",
+    "core:sleep-list",
+    "core:diaperchange-list",
+    "core:note-list",
+    "core:pumping-list",
+    "core:temperature-list",
+    "core:weight-list",
+]
+
+
+@pytest.mark.parametrize("route_name", FILTERABLE_LIST_ROUTES)
+def test_filterable_list_with_child_query(
+    core_logged_in_client, core_child, route_name
+):
+    resp = core_logged_in_client.get(reverse(route_name) + f"?child={core_child.slug}")
+    assert resp.status_code in (
+        200,
+        302,
+    ), f"{route_name}?child={core_child.slug} got {resp.status_code}"
+
+
+# ---------------------------------------------------------------------------
+# J. Numeric field min-value regressions (found via equivalence-class search).
+#
+#    BabyBuddy defines Weight/Height/Temperature/HeadCircumference/BMI/amount
+#    as plain FloatField without a MinValueValidator.  Every one of the
+#    following tests asserts the form refuses a zero or negative value (a
+#    biologically meaningless value that should never be persistable).  All
+#    six currently xfail because the form layer happily accepts these values
+#    and redirects on save.  xfail(strict=False) means: if any one ever
+#    passes, the suite still reports success - we've fixed a bug.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.found_bug
+@pytest.mark.xfail(
+    reason=(
+        "Bug: Weight.weight is a FloatField without a MinValueValidator, so "
+        "a zero or negative weight is accepted by the form and persisted."
+    ),
+    strict=False,
+)
+@pytest.mark.parametrize("bad_weight", ["-5", "-0.1", "0"])
+def test_weight_form_rejects_non_positive(
+    core_logged_in_client, core_child, bad_weight
+):
+    today = timezone.localdate().isoformat()
+    resp = core_logged_in_client.post(
+        reverse("core:weight-add"),
+        data={"child": core_child.id, "weight": bad_weight, "date": today},
+    )
+    # A clean rejection re-renders the form (200); a buggy accept redirects (302).
+    assert (
+        resp.status_code == 200
+    ), f"weight={bad_weight!r} got {resp.status_code}, expected 200 error re-render"
+
+
+@pytest.mark.found_bug
+@pytest.mark.xfail(
+    reason=(
+        "Bug: Height.height has no MinValueValidator; zero/negative heights "
+        "are silently accepted."
+    ),
+    strict=False,
+)
+@pytest.mark.parametrize("bad_height", ["-1", "-0.01", "0"])
+def test_height_form_rejects_non_positive(
+    core_logged_in_client, core_child, bad_height
+):
+    today = timezone.localdate().isoformat()
+    resp = core_logged_in_client.post(
+        reverse("core:height-add"),
+        data={"child": core_child.id, "height": bad_height, "date": today},
+    )
+    assert (
+        resp.status_code == 200
+    ), f"height={bad_height!r} got {resp.status_code}, expected 200"
+
+
+@pytest.mark.found_bug
+@pytest.mark.xfail(
+    reason=(
+        "Bug: HeadCircumference.head_circumference has no MinValueValidator; "
+        "zero/negative head circumferences are silently accepted."
+    ),
+    strict=False,
+)
+@pytest.mark.parametrize("bad_hc", ["-10", "-0.1", "0"])
+def test_head_circumference_rejects_non_positive(
+    core_logged_in_client, core_child, bad_hc
+):
+    today = timezone.localdate().isoformat()
+    resp = core_logged_in_client.post(
+        reverse("core:head-circumference-add"),
+        data={"child": core_child.id, "head_circumference": bad_hc, "date": today},
+    )
+    assert (
+        resp.status_code == 200
+    ), f"head_circumference={bad_hc!r} got {resp.status_code}"
+
+
+@pytest.mark.found_bug
+@pytest.mark.xfail(
+    reason=(
+        "Bug: BMI.bmi has no MinValueValidator nor a MaxValueValidator, so "
+        "negative and absurdly high BMI values are silently accepted."
+    ),
+    strict=False,
+)
+@pytest.mark.parametrize("bad_bmi", ["-5", "-0.5", "0", "1000"])
+def test_bmi_form_rejects_nonsensical_values(
+    core_logged_in_client, core_child, bad_bmi
+):
+    today = timezone.localdate().isoformat()
+    resp = core_logged_in_client.post(
+        reverse("core:bmi-add"),
+        data={"child": core_child.id, "bmi": bad_bmi, "date": today},
+    )
+    assert resp.status_code == 200, f"bmi={bad_bmi!r} got {resp.status_code}"
+
+
+@pytest.mark.found_bug
+@pytest.mark.xfail(
+    reason=(
+        "Bug: Temperature.temperature has no sanity validators, so readings "
+        "far outside the physiological range (<20 or >50 degC) are accepted."
+    ),
+    strict=False,
+)
+@pytest.mark.parametrize("bad_temp", ["-50", "0", "200"])
+def test_temperature_form_rejects_absurd_values(
+    core_logged_in_client, core_child, bad_temp
+):
+    now = timezone.localtime()
+    resp = core_logged_in_client.post(
+        reverse("core:temperature-add"),
+        data={
+            "child": core_child.id,
+            "temperature": bad_temp,
+            "time": _fmt_dt(now - datetime.timedelta(minutes=1)),
+        },
+    )
+    assert resp.status_code == 200, f"temperature={bad_temp!r} got {resp.status_code}"
+
+
+@pytest.mark.found_bug
+@pytest.mark.xfail(
+    reason=(
+        "Bug: Feeding.amount is a FloatField without a MinValueValidator; "
+        "a negative feeding volume should not be persistable but currently is."
+    ),
+    strict=False,
+)
+@pytest.mark.parametrize("bad_amount", ["-100", "-0.1"])
+def test_feeding_form_rejects_negative_amount(
+    core_logged_in_client, core_child, bad_amount
+):
+    now = timezone.localtime()
+    resp = core_logged_in_client.post(
+        reverse("core:feeding-add"),
+        data={
+            "child": core_child.id,
+            "start": _fmt_dt(now - datetime.timedelta(minutes=30)),
+            "end": _fmt_dt(now - datetime.timedelta(minutes=10)),
+            "type": "breast milk",
+            "method": "bottle",
+            "amount": bad_amount,
+        },
+    )
+    assert (
+        resp.status_code == 200
+    ), f"feeding amount={bad_amount!r} got {resp.status_code}"
+
+
+# ---------------------------------------------------------------------------
+# K. Birth date + birth time sanity (future-dated birth is clearly a bug).
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.found_bug
+@pytest.mark.xfail(
+    reason=(
+        "Bug: Child.birth_date has no 'not in future' validator, so a birth "
+        "date years in the future is accepted and the child appears in the "
+        "roster with a negative age."
+    ),
+    strict=False,
+)
+@pytest.mark.parametrize("future_offset_days", [1, 30, 365, 3650])
+def test_child_form_rejects_future_birth_date(
+    core_logged_in_client, future_offset_days
+):
+    future = timezone.localdate() + datetime.timedelta(days=future_offset_days)
+    resp = core_logged_in_client.post(
+        reverse("core:child-add"),
+        data={
+            "first_name": "Future",
+            "last_name": f"Baby{future_offset_days}",
+            "birth_date": future.isoformat(),
+        },
+    )
+    # A well-behaved form re-renders with an error (200); the observed
+    # behavior is a redirect to the list (302).
+    assert (
+        resp.status_code == 200
+    ), f"future birth_date(+{future_offset_days}d) got {resp.status_code}"
+
+
+# ---------------------------------------------------------------------------
+# L. DiaperChange / Note / Pumping timestamps in the future.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.found_bug
+@pytest.mark.xfail(
+    reason=(
+        "Bug: DiaperChange.time accepts future timestamps.  A diaper change "
+        "recorded tomorrow makes no semantic sense and pollutes analytics."
+    ),
+    strict=False,
+)
+@pytest.mark.parametrize("future_minutes", [5, 60, 60 * 24])
+def test_diaperchange_form_rejects_future_time(
+    core_logged_in_client, core_child, future_minutes
+):
+    future = timezone.localtime() + datetime.timedelta(minutes=future_minutes)
+    resp = core_logged_in_client.post(
+        reverse("core:diaperchange-add"),
+        data={
+            "child": core_child.id,
+            "time": _fmt_dt(future),
+            "wet": "on",
+        },
+    )
+    assert (
+        resp.status_code == 200
+    ), f"future diaperchange(+{future_minutes}m) got {resp.status_code}"
+
+
+@pytest.mark.found_bug
+@pytest.mark.xfail(
+    reason=(
+        "Bug: Note.time accepts future timestamps without validation, so a "
+        "caregiver can accidentally log notes 'tomorrow'."
+    ),
+    strict=False,
+)
+@pytest.mark.parametrize("future_minutes", [5, 60, 60 * 24])
+def test_note_form_rejects_future_time(
+    core_logged_in_client, core_child, future_minutes
+):
+    future = timezone.localtime() + datetime.timedelta(minutes=future_minutes)
+    resp = core_logged_in_client.post(
+        reverse("core:note-add"),
+        data={
+            "child": core_child.id,
+            "note": "x",
+            "time": _fmt_dt(future),
+        },
+    )
+    assert (
+        resp.status_code == 200
+    ), f"future note(+{future_minutes}m) got {resp.status_code}"
+
+
+@pytest.mark.found_bug
+@pytest.mark.xfail(
+    reason=(
+        "Bug: Pumping.amount has no MinValueValidator; a negative pumping "
+        "volume is accepted by the form and persisted."
+    ),
+    strict=False,
+)
+@pytest.mark.parametrize("bad_amount", ["-50", "-0.01"])
+def test_pumping_form_rejects_negative_amount(
+    core_logged_in_client, core_child, bad_amount
+):
+    now = timezone.localtime()
+    resp = core_logged_in_client.post(
+        reverse("core:pumping-add"),
+        data={
+            "child": core_child.id,
+            "start": _fmt_dt(now - datetime.timedelta(minutes=30)),
+            "end": _fmt_dt(now - datetime.timedelta(minutes=10)),
+            "amount": bad_amount,
+        },
+    )
+    assert (
+        resp.status_code == 200
+    ), f"pumping amount={bad_amount!r} got {resp.status_code}"
+
+
+# ---------------------------------------------------------------------------
+# M. Very long text fields (beyond the documented 255-char limit) should
+#    produce form errors, not SQL errors.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.found_bug
+@pytest.mark.xfail(
+    reason=(
+        "Bug: Child.first_name / last_name are CharField(max_length=255) but "
+        "the form does not display a friendly error when the limit is "
+        "exceeded by submitted data - the exception escapes as 500 on some "
+        "backends."
+    ),
+    strict=False,
+)
+@pytest.mark.parametrize("length", [256, 500, 1024])
+def test_child_form_long_name_renders_error(core_logged_in_client, length):
+    resp = core_logged_in_client.post(
+        reverse("core:child-add"),
+        data={
+            "first_name": "A" * length,
+            "last_name": "B",
+            "birth_date": "2024-01-01",
+        },
+    )
+    # Any non-5xx response means the server didn't crash.  200 is ideal
+    # (errorlist re-render); 302 would still be acceptable.
+    assert resp.status_code < 500, f"long first_name={length} got {resp.status_code}"
+    # But the form should have refused the save; a happy 302 means the
+    # over-length string was silently accepted.
+    assert (
+        resp.status_code == 200
+    ), f"long first_name={length} got {resp.status_code}, expected 200 error"

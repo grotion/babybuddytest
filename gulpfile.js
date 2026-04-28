@@ -27,15 +27,21 @@ const spawn = child_process.spawn;
  * @private
  */
 function _runInPipenv(command) {
-  command.unshift("run");
-  command = command.concat(process.argv.splice(3));
+  // Patched: spawn the command directly instead of `pipenv run <command>`.
+  // The lint tools (black, djlint) are installed globally on this machine,
+  // so we can skip the pipenv wrapper entirely.
+  const cmd = command[0];
+  const args = command.slice(1).concat(process.argv.splice(3));
   return new Promise((resolve, reject) => {
-    spawn("pipenv", command, { stdio: "inherit" }).on("exit", function (code) {
-      if (code) {
-        reject();
-      }
-      resolve();
-    });
+    spawn(cmd, args, { stdio: "inherit", shell: true }).on(
+      "exit",
+      function (code) {
+        if (code) {
+          reject();
+        }
+        resolve();
+      },
+    );
   });
 }
 
@@ -51,12 +57,16 @@ function _runInPipenv(command) {
  */
 function _runCommand(program, command) {
   return new Promise((resolve, reject) => {
-    spawn(program, command, { stdio: "inherit" }).on("exit", function (code) {
-      if (code) {
-        reject();
-      }
-      resolve();
-    });
+    // shell: true so Windows can resolve .cmd shims (npx.cmd, etc.) on PATH.
+    spawn(program, command, { stdio: "inherit", shell: true }).on(
+      "exit",
+      function (code) {
+        if (code) {
+          reject();
+        }
+        resolve();
+      },
+    );
   });
 }
 

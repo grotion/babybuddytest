@@ -17,7 +17,7 @@
 # ------------------------------------------------------------------------------------------------------------------ #
 ######################################################################################################################
 
-'''
+"""
 🙁 7 Survived — All Are Equivalent Mutants (Impossible to Kill)
 metadata mutmut_2,3,4,5 (4 mutants)
 These four mutations all target the arguments passed to the mocked function. Every metadata test patches SimpleMetadata.determine_metadata with a mock that returns a fixed dict regardless of what arguments it receives. mutmut generates mutations like:
@@ -44,7 +44,8 @@ The true equivalent is: the second "user" string in attrs["user"] is mutated to 
 urls __init__ mutmut_1 (1 mutant)
 super().__init__(*args, **kwargs) — mutmut_1 drops *args, producing super().__init__(**kwargs). Our test_router_init_forwards_trailing_slash_kwarg_to_super passes trailing_slash=False as a kwarg and checks router.trailing_slash == "". This should kill the mutant since **kwargs is still forwarded in this mutation (only *args is dropped).
 The mutation survives because CustomRouterWithExtraPaths is never called with positional arguments anywhere — *args dropping is invisible. trailing_slash=False is a keyword argument, so it goes through **kwargs which is still present. The mutation super().__init__(**kwargs) (dropping *args) is observationally equivalent to super().__init__(*args, **kwargs) when no positional arguments are ever passed. Impossible to kill without a caller that passes positional args to the router constructor, which DefaultRouter.__init__ does not use in its public API.
-'''
+"""
+
 import pytest
 
 from collections import OrderedDict
@@ -78,8 +79,10 @@ class DummyViewWithFields:
 class DummyViewWithClass:
     filterset_class = DummyFiltersetClass
 
+
 class DummyViewNoFilter:
     pass
+
 
 class DummyPlainView:
     pass
@@ -124,27 +127,57 @@ class FiltersContractTests(SimpleTestCase):
         tag_filter = filters.TagsFieldFilter.base_filters["tags"]
         self.assertEqual(tag_filter.field_name, "tags__name")
         self.assertEqual(tag_filter.label, "tag")
-        self.assertEqual(tag_filter.extra["help_text"], "A list of tag names, comma separated")
+        self.assertEqual(
+            tag_filter.extra["help_text"], "A list of tag names, comma separated"
+        )
 
     def test_time_filter_supports_exact_min_and_max_date_queries(self):
-        self.assertEqual(filters.TimeFieldFilter.base_filters["date"].field_name, "time")
-        self.assertEqual(filters.TimeFieldFilter.base_filters["date_max"].lookup_expr, "lte")
-        self.assertEqual(filters.TimeFieldFilter.base_filters["date_min"].lookup_expr, "gte")
+        self.assertEqual(
+            filters.TimeFieldFilter.base_filters["date"].field_name, "time"
+        )
+        self.assertEqual(
+            filters.TimeFieldFilter.base_filters["date_max"].lookup_expr, "lte"
+        )
+        self.assertEqual(
+            filters.TimeFieldFilter.base_filters["date_min"].lookup_expr, "gte"
+        )
         self.assertEqual(
             filters.TimeFieldFilter.Meta.fields,
             sorted(["child", "date", "date_max", "date_min"]),
         )
 
     def test_start_end_filter_supports_exact_min_and_max_queries(self):
-        self.assertEqual(filters.StartEndFieldFilter.base_filters["start"].field_name, "start")
-        self.assertEqual(filters.StartEndFieldFilter.base_filters["start_max"].lookup_expr, "lte")
-        self.assertEqual(filters.StartEndFieldFilter.base_filters["start_min"].lookup_expr, "gte")
-        self.assertEqual(filters.StartEndFieldFilter.base_filters["end"].field_name, "end")
-        self.assertEqual(filters.StartEndFieldFilter.base_filters["end_max"].lookup_expr, "lte")
-        self.assertEqual(filters.StartEndFieldFilter.base_filters["end_min"].lookup_expr, "gte")
+        self.assertEqual(
+            filters.StartEndFieldFilter.base_filters["start"].field_name, "start"
+        )
+        self.assertEqual(
+            filters.StartEndFieldFilter.base_filters["start_max"].lookup_expr, "lte"
+        )
+        self.assertEqual(
+            filters.StartEndFieldFilter.base_filters["start_min"].lookup_expr, "gte"
+        )
+        self.assertEqual(
+            filters.StartEndFieldFilter.base_filters["end"].field_name, "end"
+        )
+        self.assertEqual(
+            filters.StartEndFieldFilter.base_filters["end_max"].lookup_expr, "lte"
+        )
+        self.assertEqual(
+            filters.StartEndFieldFilter.base_filters["end_min"].lookup_expr, "gte"
+        )
         self.assertEqual(
             filters.StartEndFieldFilter.Meta.fields,
-            sorted(["child", "end", "end_max", "end_min", "start", "start_max", "start_min"]),
+            sorted(
+                [
+                    "child",
+                    "end",
+                    "end_max",
+                    "end_min",
+                    "start",
+                    "start_max",
+                    "start_min",
+                ]
+            ),
         )
 
     def test_diaper_change_filter_targets_diaper_changes_and_supports_core_fields(self):
@@ -190,9 +223,19 @@ class FiltersContractTests(SimpleTestCase):
     ## Fix#3 - Add more
     def test_timer_filter_fields_are_exactly_sorted(self):
         # Existing test only uses assertIn for "name" and "user"; this pins the full sorted list.
-        expected = sorted([
-            "child", "end", "end_max", "end_min", "start", "start_max", "start_min", "name", "user"
-        ])
+        expected = sorted(
+            [
+                "child",
+                "end",
+                "end_max",
+                "end_min",
+                "start",
+                "start_max",
+                "start_min",
+                "name",
+                "user",
+            ]
+        )
         self.assertEqual(filters.TimerFilter.Meta.fields, expected)
 
     ## Fix#3 - Add more
@@ -203,11 +246,15 @@ class FiltersContractTests(SimpleTestCase):
     ## Fix#3 - Add more
     def test_start_end_filter_start_label_is_exactly_start_datetime(self):
         # Existing test checks field_name and lookup_expr but not labels.
-        self.assertEqual(filters.StartEndFieldFilter.base_filters["start"].label, "Start DateTime")
+        self.assertEqual(
+            filters.StartEndFieldFilter.base_filters["start"].label, "Start DateTime"
+        )
 
     ## Fix#3 - Add more
     def test_start_end_filter_end_label_is_exactly_end_datetime(self):
-        self.assertEqual(filters.StartEndFieldFilter.base_filters["end"].label, "End DateTime")
+        self.assertEqual(
+            filters.StartEndFieldFilter.base_filters["end"].label, "End DateTime"
+        )
 
 
 class MetadataContractTests(SimpleTestCase):
@@ -231,7 +278,11 @@ class MetadataContractTests(SimpleTestCase):
 
     @patch("rest_framework.metadata.SimpleMetadata.determine_metadata")
     def test_metadata_preserves_other_super_data(self, mock_super):
-        mock_super.return_value = {"name": "X", "description": "remove", "parses": ["json"]}
+        mock_super.return_value = {
+            "name": "X",
+            "description": "remove",
+            "parses": ["json"],
+        }
         result = APIMetadata().determine_metadata(None, DummyViewWithClass())
         self.assertEqual(result["parses"], ["json"])
 
@@ -242,7 +293,9 @@ class MetadataContractTests(SimpleTestCase):
         self.assertEqual(result, {"name": "X"})
 
     @patch("rest_framework.metadata.SimpleMetadata.determine_metadata")
-    def test_metadata_prefers_filterset_fields_over_filterset_class_when_both_exist(self, mock_super):
+    def test_metadata_prefers_filterset_fields_over_filterset_class_when_both_exist(
+        self, mock_super
+    ):
         class Both:
             filterset_fields = ("a", "b")
             filterset_class = DummyFiltersetClass
@@ -298,7 +351,9 @@ class MetadataContractTests(SimpleTestCase):
 
     ## (fix#1) Kill more mutation
     @patch("rest_framework.metadata.SimpleMetadata.determine_metadata")
-    def test_metadata_prefers_filterset_fields_over_filterset_class_exactly(self, mock_super):
+    def test_metadata_prefers_filterset_fields_over_filterset_class_exactly(
+        self, mock_super
+    ):
         class Both:
             filterset_fields = ("x", "y")
             filterset_class = DummyFiltersetClass
@@ -337,7 +392,11 @@ class MetadataContractTests(SimpleTestCase):
     def test_metadata_pops_exactly_description_key_not_other_keys(self, mock_super):
         # mutmut_2: "description" → "xdescription"
         # If the wrong key is popped, "description" stays in result
-        mock_super.return_value = {"description": "remove", "name": "X", "renders": ["json"]}
+        mock_super.return_value = {
+            "description": "remove",
+            "name": "X",
+            "renders": ["json"],
+        }
         result = APIMetadata().determine_metadata(None, DummyViewNoFilter())
         assert "description" not in result
         assert "name" in result
@@ -378,7 +437,9 @@ class MetadataContractTests(SimpleTestCase):
 
     ## Fix#5 - mutation
     @patch("rest_framework.metadata.SimpleMetadata.determine_metadata")
-    def test_metadata_complete_exact_output_kills_all_string_mutations(self, mock_super):
+    def test_metadata_complete_exact_output_kills_all_string_mutations(
+        self, mock_super
+    ):
         # Kills mutmut_2: if ".determine_metadata" mutated to ".XXdetermine_metadata",
         # mock doesn't intercept → AttributeError → test fails → mutation killed.
         # Kills mutmut_3: "description" → "XXdescription" → pop raises KeyError → fails.
@@ -392,15 +453,20 @@ class MetadataContractTests(SimpleTestCase):
             "renders": ["application/json"],
         }
         result = APIMetadata().determine_metadata(None, DummyViewWithFields())
-        self.assertEqual(result, {
-            "name": "Test",
-            "renders": ["application/json"],
-            "filters": ("child", "date"),
-        })
+        self.assertEqual(
+            result,
+            {
+                "name": "Test",
+                "renders": ["application/json"],
+                "filters": ("child", "date"),
+            },
+        )
 
     ## Fix#5 - mutation
     @patch("rest_framework.metadata.SimpleMetadata.determine_metadata")
-    def test_metadata_exact_output_filterset_class_kills_string_mutations(self, mock_super):
+    def test_metadata_exact_output_filterset_class_kills_string_mutations(
+        self, mock_super
+    ):
         # Same pattern for the elif branch (filterset_class path).
         # Ensures "filterset_class" and second "filters" key are pinned exactly.
         mock_super.return_value = {
@@ -408,14 +474,19 @@ class MetadataContractTests(SimpleTestCase):
             "name": "Test",
         }
         result = APIMetadata().determine_metadata(None, DummyViewWithClass())
-        self.assertEqual(result, {
-            "name": "Test",
-            "filters": ["child", "date"],
-        })
+        self.assertEqual(
+            result,
+            {
+                "name": "Test",
+                "filters": ["child", "date"],
+            },
+        )
 
     ## Fix#5 - mutation
     @patch("rest_framework.metadata.SimpleMetadata.determine_metadata")
-    def test_metadata_description_removed_and_no_exception_for_valid_input(self, mock_super):
+    def test_metadata_description_removed_and_no_exception_for_valid_input(
+        self, mock_super
+    ):
         # A test that explicitly asserts NO exception when description IS present.
         # If mutmut changes "description" to "XXdescription", pop raises KeyError
         # which propagates here as an unexpected failure → mutant killed.
@@ -538,12 +609,16 @@ class URLsContractTests(SimpleTestCase):
         router = urls.CustomRouterWithExtraPaths()
         router.add_detail_path("profile", "profile", dummy_view)
 
-        with patch("rest_framework.routers.DefaultRouter.urls", new_callable=PropertyMock) as mock_urls:
+        with patch(
+            "rest_framework.routers.DefaultRouter.urls", new_callable=PropertyMock
+        ) as mock_urls:
             mock_urls.return_value = ["base-route"]
             result = router.urls
 
         self.assertEqual(result[0], "base-route")
-        self.assertTrue(any(getattr(u.pattern, "_route", "") == "profile" for u in result[1:]))
+        self.assertTrue(
+            any(getattr(u.pattern, "_route", "") == "profile" for u in result[1:])
+        )
 
     def test_module_level_router_contains_profile_and_schema_extras(self):
         self.assertTrue(any(p.path == "profile" for p in urls.router.extra_api_urls))
@@ -624,7 +699,9 @@ class URLsContractTests(SimpleTestCase):
             router.get_api_root_view()
 
         list_route_name = router.routes[0].name  # e.g. "{basename}-list"
-        self.assertEqual(captured["api_root_dict"]["bmi"], list_route_name.format(basename="bmi"))
+        self.assertEqual(
+            captured["api_root_dict"]["bmi"], list_route_name.format(basename="bmi")
+        )
 
     ## Fix#3 - Add more
     def test_urls_property_total_length_is_base_plus_extra(self):
@@ -633,7 +710,9 @@ class URLsContractTests(SimpleTestCase):
         router.add_detail_path("profile", "profile", dummy_view)
         router.add_detail_path("schema", "schema", dummy_view)
 
-        with patch("rest_framework.routers.DefaultRouter.urls", new_callable=PropertyMock) as mock_urls:
+        with patch(
+            "rest_framework.routers.DefaultRouter.urls", new_callable=PropertyMock
+        ) as mock_urls:
             mock_urls.return_value = ["base1", "base2", "base3"]
             result = router.urls
 
@@ -681,7 +760,6 @@ class URLsContractTests(SimpleTestCase):
         self.assertEqual(router.trailing_slash, "/")
 
 
-
 class SerializersContractTests(SimpleTestCase):
     # Component: api/serializers.py
     # Intent: serializers should enforce public validation behavior and expose expected field contracts.
@@ -692,7 +770,9 @@ class SerializersContractTests(SimpleTestCase):
         self.assertEqual(serializer.validate(attrs), attrs)
 
     def test_core_serializer_partial_update_returns_only_changed_fields(self):
-        serializer = DummyCoreModelSerializer(instance=DummyModel(alpha=1, beta=2), partial=True)
+        serializer = DummyCoreModelSerializer(
+            instance=DummyModel(alpha=1, beta=2), partial=True
+        )
         result = serializer.validate({"beta": 99})
         self.assertEqual(result, {"beta": 99})
 
@@ -705,12 +785,16 @@ class SerializersContractTests(SimpleTestCase):
         self.assertIn("end", exc.exception.detail)
 
     def test_duration_serializer_partial_update_does_not_require_all_fields(self):
-        serializer = DummyDurationSerializer(instance=DummyModel(child="c", start="s", end="e"), partial=True)
+        serializer = DummyDurationSerializer(
+            instance=DummyModel(child="c", start="s", end="e"), partial=True
+        )
         self.assertEqual(serializer.validate({}), {})
 
     def test_duration_serializer_uses_timer_to_supply_missing_fields(self):
         serializer = DummyDurationSerializer()
-        timer = SimpleNamespace(child="timer-child", start="timer-start", stop=MagicMock())
+        timer = SimpleNamespace(
+            child="timer-child", start="timer-start", stop=MagicMock()
+        )
 
         with patch.object(api_serializers.timezone, "now", return_value="now"):
             result = serializer.validate({"timer": timer})
@@ -736,11 +820,18 @@ class SerializersContractTests(SimpleTestCase):
 
     def test_duration_serializer_timer_values_override_manual_values(self):
         serializer = DummyDurationSerializer()
-        timer = SimpleNamespace(child="timer-child", start="timer-start", stop=MagicMock())
+        timer = SimpleNamespace(
+            child="timer-child", start="timer-start", stop=MagicMock()
+        )
 
         with patch.object(api_serializers.timezone, "now", return_value="now"):
             result = serializer.validate(
-                {"timer": timer, "child": "manual-child", "start": "manual-start", "end": "manual-end"}
+                {
+                    "timer": timer,
+                    "child": "manual-child",
+                    "start": "manual-start",
+                    "end": "manual-end",
+                }
             )
 
         self.assertEqual(result["child"], "timer-child")
@@ -758,7 +849,9 @@ class SerializersContractTests(SimpleTestCase):
         self.assertTrue(nap_field.allow_null)
         self.assertIsNone(nap_field.default)
 
-    def test_timer_serializer_child_and_user_are_optional_and_duration_is_read_only(self):
+    def test_timer_serializer_child_and_user_are_optional_and_duration_is_read_only(
+        self,
+    ):
         serializer = api_serializers.TimerSerializer()
         self.assertFalse(serializer.fields["child"].required)
         self.assertTrue(serializer.fields["child"].allow_null)
@@ -767,48 +860,75 @@ class SerializersContractTests(SimpleTestCase):
         self.assertTrue(serializer.fields["duration"].read_only)
 
     def test_timer_serializer_defaults_user_from_request_when_missing(self):
-        serializer = api_serializers.TimerSerializer(context={"request": SimpleNamespace(user="request-user")})
-        with patch.object(api_serializers.CoreModelSerializer, "validate", return_value={"name": "x"}):
+        serializer = api_serializers.TimerSerializer(
+            context={"request": SimpleNamespace(user="request-user")}
+        )
+        with patch.object(
+            api_serializers.CoreModelSerializer, "validate", return_value={"name": "x"}
+        ):
             result = serializer.validate({"name": "x"})
         self.assertEqual(result["user"], "request-user")
 
     def test_timer_serializer_defaults_user_from_request_when_none(self):
-        serializer = api_serializers.TimerSerializer(context={"request": SimpleNamespace(user="request-user")})
-        with patch.object(api_serializers.CoreModelSerializer, "validate", return_value={"user": None}):
+        serializer = api_serializers.TimerSerializer(
+            context={"request": SimpleNamespace(user="request-user")}
+        )
+        with patch.object(
+            api_serializers.CoreModelSerializer, "validate", return_value={"user": None}
+        ):
             result = serializer.validate({"user": None})
         self.assertEqual(result["user"], "request-user")
 
     def test_timer_serializer_preserves_explicit_user(self):
-        serializer = api_serializers.TimerSerializer(context={"request": SimpleNamespace(user="request-user")})
-        with patch.object(api_serializers.CoreModelSerializer, "validate", return_value={"user": "explicit-user"}):
+        serializer = api_serializers.TimerSerializer(
+            context={"request": SimpleNamespace(user="request-user")}
+        )
+        with patch.object(
+            api_serializers.CoreModelSerializer,
+            "validate",
+            return_value={"user": "explicit-user"},
+        ):
             result = serializer.validate({"user": "explicit-user"})
         self.assertEqual(result["user"], "explicit-user")
 
     def test_profile_serializer_returns_api_key_string(self):
         serializer = api_serializers.ProfileSerializer()
-        serializer.instance = SimpleNamespace(api_key=lambda: SimpleNamespace(key="secret-key"))
+        serializer.instance = SimpleNamespace(
+            api_key=lambda: SimpleNamespace(key="secret-key")
+        )
         self.assertEqual(serializer.get_api_key(None), "secret-key")
 
     def test_user_serializer_fields_are_read_only(self):
         for field in api_serializers.UserSerializer.Meta.fields:
-            self.assertTrue(api_serializers.UserSerializer.Meta.extra_kwargs[field]["read_only"])
+            self.assertTrue(
+                api_serializers.UserSerializer.Meta.extra_kwargs[field]["read_only"]
+            )
 
     def test_profile_serializer_fields_are_read_only(self):
         for field in api_serializers.ProfileSerializer.Meta.fields:
-            self.assertTrue(api_serializers.ProfileSerializer.Meta.extra_kwargs[field]["read_only"])
+            self.assertTrue(
+                api_serializers.ProfileSerializer.Meta.extra_kwargs[field]["read_only"]
+            )
 
     def test_representative_serializer_models_match_expected_models(self):
         self.assertIs(api_serializers.BMISerializer.Meta.model, models.BMI)
         self.assertIs(api_serializers.PumpingSerializer.Meta.model, models.Pumping)
         self.assertIs(api_serializers.ChildSerializer.Meta.model, models.Child)
-        self.assertIs(api_serializers.DiaperChangeSerializer.Meta.model, models.DiaperChange)
+        self.assertIs(
+            api_serializers.DiaperChangeSerializer.Meta.model, models.DiaperChange
+        )
         self.assertIs(api_serializers.FeedingSerializer.Meta.model, models.Feeding)
-        self.assertIs(api_serializers.HeadCircumferenceSerializer.Meta.model, models.HeadCircumference)
+        self.assertIs(
+            api_serializers.HeadCircumferenceSerializer.Meta.model,
+            models.HeadCircumference,
+        )
         self.assertIs(api_serializers.HeightSerializer.Meta.model, models.Height)
         self.assertIs(api_serializers.NoteSerializer.Meta.model, models.Note)
         self.assertIs(api_serializers.SleepSerializer.Meta.model, models.Sleep)
         self.assertIs(api_serializers.TagSerializer.Meta.model, models.Tag)
-        self.assertIs(api_serializers.TemperatureSerializer.Meta.model, models.Temperature)
+        self.assertIs(
+            api_serializers.TemperatureSerializer.Meta.model, models.Temperature
+        )
         self.assertIs(api_serializers.TimerSerializer.Meta.model, models.Timer)
         self.assertIs(api_serializers.TummyTimeSerializer.Meta.model, models.TummyTime)
         self.assertIs(api_serializers.WeightSerializer.Meta.model, models.Weight)
@@ -822,12 +942,17 @@ class SerializersContractTests(SimpleTestCase):
         self.assertTrue(extra["last_used"]["read_only"])
 
     def test_bmi_serializer_uses_bmi_label_override(self):
-        self.assertEqual(api_serializers.BMISerializer.Meta.extra_kwargs["core.BMI.bmi"]["label"], "BMI")
+        self.assertEqual(
+            api_serializers.BMISerializer.Meta.extra_kwargs["core.BMI.bmi"]["label"],
+            "BMI",
+        )
 
     ## (fix#1) Kill more mutation
     # Goal: kill CoreModelSerializer.validate survivors by asserting the object passed to clean()
     # reflects merged values, not just return values.
-    def test_core_model_serializer_partial_validate_merges_new_values_before_clean(self):
+    def test_core_model_serializer_partial_validate_merges_new_values_before_clean(
+        self,
+    ):
         seen = {}
 
         def fake_clean(self):
@@ -845,7 +970,9 @@ class SerializersContractTests(SimpleTestCase):
         self.assertEqual(instance.beta, 2)
 
     ## (fix#1) Kill more mutation
-    def test_core_model_serializer_non_partial_validate_builds_object_from_attrs_before_clean(self):
+    def test_core_model_serializer_non_partial_validate_builds_object_from_attrs_before_clean(
+        self,
+    ):
         seen = {}
 
         def fake_clean(self):
@@ -864,7 +991,9 @@ class SerializersContractTests(SimpleTestCase):
     # Goal: kill duration serializer survivors by checking exact success/failure contracts.
     def test_duration_serializer_timer_success_stops_once_and_removes_timer_key(self):
         serializer = DummyDurationSerializer()
-        timer = SimpleNamespace(child="timer-child", start="timer-start", stop=MagicMock())
+        timer = SimpleNamespace(
+            child="timer-child", start="timer-start", stop=MagicMock()
+        )
 
         with patch.object(api_serializers.timezone, "now", return_value="now"):
             result = serializer.validate({"timer": timer})
@@ -893,7 +1022,9 @@ class SerializersContractTests(SimpleTestCase):
     ## (fix#1) Kill more mutation
     def test_duration_serializer_manual_values_are_overridden_by_timer_values(self):
         serializer = DummyDurationSerializer()
-        timer = SimpleNamespace(child="timer-child", start="timer-start", stop=MagicMock())
+        timer = SimpleNamespace(
+            child="timer-child", start="timer-start", stop=MagicMock()
+        )
 
         with patch.object(api_serializers.timezone, "now", return_value="now"):
             result = serializer.validate(
@@ -921,20 +1052,30 @@ class SerializersContractTests(SimpleTestCase):
         self.assertEqual(serializer.validate({}), {})
 
     ## (fix#1) Kill more mutation
-    def test_timer_serializer_defaults_user_when_missing_or_none_and_preserves_explicit(self):
+    def test_timer_serializer_defaults_user_when_missing_or_none_and_preserves_explicit(
+        self,
+    ):
         serializer = api_serializers.TimerSerializer(
             context={"request": SimpleNamespace(user="request-user")}
         )
 
-        with patch.object(api_serializers.CoreModelSerializer, "validate", return_value={"name": "x"}):
+        with patch.object(
+            api_serializers.CoreModelSerializer, "validate", return_value={"name": "x"}
+        ):
             result_missing = serializer.validate({"name": "x"})
         self.assertEqual(result_missing["user"], "request-user")
 
-        with patch.object(api_serializers.CoreModelSerializer, "validate", return_value={"user": None}):
+        with patch.object(
+            api_serializers.CoreModelSerializer, "validate", return_value={"user": None}
+        ):
             result_none = serializer.validate({"user": None})
         self.assertEqual(result_none["user"], "request-user")
 
-        with patch.object(api_serializers.CoreModelSerializer, "validate", return_value={"user": "explicit-user"}):
+        with patch.object(
+            api_serializers.CoreModelSerializer,
+            "validate",
+            return_value={"user": "explicit-user"},
+        ):
             result_explicit = serializer.validate({"user": "explicit-user"})
         self.assertEqual(result_explicit["user"], "explicit-user")
 
@@ -980,7 +1121,9 @@ class SerializersContractTests(SimpleTestCase):
         serializer = api_serializers.TimerSerializer(
             context={"request": SimpleNamespace(user="u")}
         )
-        with patch.object(api_serializers.CoreModelSerializer, "validate", return_value={}):
+        with patch.object(
+            api_serializers.CoreModelSerializer, "validate", return_value={}
+        ):
             result = serializer.validate({})
         self.assertIn("user", result)
 
@@ -1090,7 +1233,9 @@ class SerializersContractTests(SimpleTestCase):
         serializer = DummyDurationSerializer()
         # Passing "xtimer" should not trigger timer path → requires child/start/end
         with self.assertRaises(ValidationError) as exc:
-            serializer.validate({"xtimer": SimpleNamespace(child="c", start="s", stop=MagicMock())})
+            serializer.validate(
+                {"xtimer": SimpleNamespace(child="c", start="s", stop=MagicMock())}
+            )
         assert "child" in exc.exception.detail
 
     # mutmut_31-34: error message string "This field is required."
@@ -1135,8 +1280,9 @@ class SerializersContractTests(SimpleTestCase):
         serializer = api_serializers.TimerSerializer(
             context={"request": SimpleNamespace(user="request-user")}
         )
-        with patch.object(api_serializers.CoreModelSerializer, "validate",
-                          return_value={}):  # "user" NOT in returned attrs
+        with patch.object(
+            api_serializers.CoreModelSerializer, "validate", return_value={}
+        ):  # "user" NOT in returned attrs
             result = serializer.validate({})
         # Should have defaulted to request user because "user" was not in attrs
         assert result["user"] == "request-user"
@@ -1148,14 +1294,16 @@ class SerializersContractTests(SimpleTestCase):
         serializer = api_serializers.TimerSerializer(
             context={"request": SimpleNamespace(user="request-user")}
         )
-        with patch.object(api_serializers.CoreModelSerializer, "validate",
-                          return_value={"user": None}):
+        with patch.object(
+            api_serializers.CoreModelSerializer, "validate", return_value={"user": None}
+        ):
             result = serializer.validate({"user": None})
         assert result["user"] == "request-user"
 
     ## Fix#5 - more mutation test
     def test_duration_serializer_timer_key_is_exactly_timer_not_another_name(self):
         from api import serializers as api_serializers
+
         timer = SimpleNamespace(
             child=None,
             start="start-val",
@@ -1179,7 +1327,9 @@ class SerializersContractTests(SimpleTestCase):
         self.assertEqual(result.get("end"), "end-val")
 
     ## Fix#5 - more mutation test
-    def test_duration_serializer_error_message_exact_string_for_each_missing_field(self):
+    def test_duration_serializer_error_message_exact_string_for_each_missing_field(
+        self,
+    ):
         # mutmut_31-34: error message string "This field is required." mutated.
         # Each assertion pins the exact message value for each missing field key.
         serializer = DummyDurationSerializer()
@@ -1213,6 +1363,7 @@ class SerializersContractTests(SimpleTestCase):
         # even when an explicit user is provided. This test passes explicit user
         # and verifies it is PRESERVED (not overwritten by request.user).
         from api import serializers as api_serializers
+
         serializer = api_serializers.TimerSerializer(
             context={"request": SimpleNamespace(user="request-user")}
         )
@@ -1231,6 +1382,7 @@ class SerializersContractTests(SimpleTestCase):
         # Kills the attrs["user"] is None check mutation.
         # user=None → replaced; any non-None value → preserved.
         from api import serializers as api_serializers
+
         request_user = SimpleNamespace(id=1)
         serializer = api_serializers.TimerSerializer(
             context={"request": SimpleNamespace(user=request_user)}
@@ -1260,29 +1412,60 @@ class ViewsContractTests(SimpleTestCase):
 
     def test_viewsets_use_expected_serializers_and_filters(self):
         self.assertIs(views.BMIViewSet.serializer_class, api_serializers.BMISerializer)
-        self.assertIs(views.ChildViewSet.serializer_class, api_serializers.ChildSerializer)
+        self.assertIs(
+            views.ChildViewSet.serializer_class, api_serializers.ChildSerializer
+        )
         self.assertEqual(views.ChildViewSet.lookup_field, "slug")
-        self.assertIs(views.DiaperChangeViewSet.serializer_class, api_serializers.DiaperChangeSerializer)
-        self.assertIs(views.DiaperChangeViewSet.filterset_class, filters.DiaperChangeFilter)
-        self.assertIs(views.FeedingViewSet.serializer_class, api_serializers.FeedingSerializer)
+        self.assertIs(
+            views.DiaperChangeViewSet.serializer_class,
+            api_serializers.DiaperChangeSerializer,
+        )
+        self.assertIs(
+            views.DiaperChangeViewSet.filterset_class, filters.DiaperChangeFilter
+        )
+        self.assertIs(
+            views.FeedingViewSet.serializer_class, api_serializers.FeedingSerializer
+        )
         self.assertIs(views.FeedingViewSet.filterset_class, filters.FeedingFilter)
-        self.assertIs(views.HeadCircumferenceViewSet.serializer_class, api_serializers.HeadCircumferenceSerializer)
-        self.assertIs(views.HeightViewSet.serializer_class, api_serializers.HeightSerializer)
-        self.assertIs(views.NoteViewSet.serializer_class, api_serializers.NoteSerializer)
+        self.assertIs(
+            views.HeadCircumferenceViewSet.serializer_class,
+            api_serializers.HeadCircumferenceSerializer,
+        )
+        self.assertIs(
+            views.HeightViewSet.serializer_class, api_serializers.HeightSerializer
+        )
+        self.assertIs(
+            views.NoteViewSet.serializer_class, api_serializers.NoteSerializer
+        )
         self.assertIs(views.NoteViewSet.filterset_class, filters.NoteFilter)
-        self.assertIs(views.PumpingViewSet.serializer_class, api_serializers.PumpingSerializer)
+        self.assertIs(
+            views.PumpingViewSet.serializer_class, api_serializers.PumpingSerializer
+        )
         self.assertIs(views.PumpingViewSet.filterset_class, filters.PumpingFilter)
-        self.assertIs(views.SleepViewSet.serializer_class, api_serializers.SleepSerializer)
+        self.assertIs(
+            views.SleepViewSet.serializer_class, api_serializers.SleepSerializer
+        )
         self.assertIs(views.SleepViewSet.filterset_class, filters.SleepFilter)
         self.assertIs(views.TagViewSet.serializer_class, api_serializers.TagSerializer)
         self.assertEqual(views.TagViewSet.lookup_field, "slug")
-        self.assertIs(views.TemperatureViewSet.serializer_class, api_serializers.TemperatureSerializer)
-        self.assertIs(views.TemperatureViewSet.filterset_class, filters.TemperatureFilter)
-        self.assertIs(views.TimerViewSet.serializer_class, api_serializers.TimerSerializer)
+        self.assertIs(
+            views.TemperatureViewSet.serializer_class,
+            api_serializers.TemperatureSerializer,
+        )
+        self.assertIs(
+            views.TemperatureViewSet.filterset_class, filters.TemperatureFilter
+        )
+        self.assertIs(
+            views.TimerViewSet.serializer_class, api_serializers.TimerSerializer
+        )
         self.assertIs(views.TimerViewSet.filterset_class, filters.TimerFilter)
-        self.assertIs(views.TummyTimeViewSet.serializer_class, api_serializers.TummyTimeSerializer)
+        self.assertIs(
+            views.TummyTimeViewSet.serializer_class, api_serializers.TummyTimeSerializer
+        )
         self.assertIs(views.TummyTimeViewSet.filterset_class, filters.TummyTimeFilter)
-        self.assertIs(views.WeightViewSet.serializer_class, api_serializers.WeightSerializer)
+        self.assertIs(
+            views.WeightViewSet.serializer_class, api_serializers.WeightSerializer
+        )
 
     def test_representative_ordering_contracts_are_exposed(self):
         self.assertEqual(views.BMIViewSet.ordering, "-date")
@@ -1310,7 +1493,9 @@ class ViewsContractTests(SimpleTestCase):
     def test_profile_view_exposes_expected_static_contract(self):
         self.assertEqual(views.ProfileView.action, "get")
         self.assertEqual(views.ProfileView.basename, "profile")
-        self.assertIs(views.ProfileView.serializer_class, api_serializers.ProfileSerializer)
+        self.assertIs(
+            views.ProfileView.serializer_class, api_serializers.ProfileSerializer
+        )
 
     def test_profile_view_returns_serialized_settings_for_current_user(self):
         request = RequestFactory().get("/api/profile/")
@@ -1324,10 +1509,14 @@ class ViewsContractTests(SimpleTestCase):
         view = views.ProfileView()
         view.serializer_class = DummySerializer
 
-        with patch.object(views, "get_object_or_404", return_value=settings_obj) as mock_get:
+        with patch.object(
+            views, "get_object_or_404", return_value=settings_obj
+        ) as mock_get:
             response = view.get(request)
 
-        mock_get.assert_called_once_with(babybuddy_models.Settings.objects, user="user-object")
+        mock_get.assert_called_once_with(
+            babybuddy_models.Settings.objects, user="user-object"
+        )
         self.assertEqual(response.data, {"matched": True})
 
     def test_profile_view_raises_http404_when_settings_missing(self):
@@ -1379,19 +1568,25 @@ class ViewsContractTests(SimpleTestCase):
 
     ## Fix#3 - add more
     def test_timer_viewset_ordering_fields_exact(self):
-        self.assertEqual(views.TimerViewSet.ordering_fields, ("duration", "end", "start"))
+        self.assertEqual(
+            views.TimerViewSet.ordering_fields, ("duration", "end", "start")
+        )
 
     ## Fix#3 - add more
     def test_tag_viewset_ordering_fields_exact(self):
-        self.assertEqual(views.TagViewSet.ordering_fields, ("last_used", "name", "slug"))
+        self.assertEqual(
+            views.TagViewSet.ordering_fields, ("last_used", "name", "slug")
+        )
 
     ## Fix#3 - add more
     def test_feeding_viewset_ordering_fields_exact(self):
-        self.assertEqual(views.FeedingViewSet.ordering_fields, ("amount", "duration", "end", "start"))
+        self.assertEqual(
+            views.FeedingViewSet.ordering_fields, ("amount", "duration", "end", "start")
+        )
 
     ## Fix#3 - add more
     def test_profile_view_queryset_model_is_settings(self):
         # Not tested anywhere in the original file.
         from babybuddy import models as babybuddy_models
-        self.assertEqual(views.ProfileView.queryset.model, babybuddy_models.Settings)
 
+        self.assertEqual(views.ProfileView.queryset.model, babybuddy_models.Settings)

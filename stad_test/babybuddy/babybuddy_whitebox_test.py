@@ -14,7 +14,7 @@
 # ---------------------------------------------------------------------------------------------------------------------- #
 ##########################################################################################################################
 
-'''
+"""
 Coverage
 babybuddy/formats/en/formats.py
 SHORT_MONTH_DAY_FORMAT = "M j"
@@ -26,9 +26,9 @@ Django only imports this file when rendering templates or formatting dates/times
 Even if you imported the module directly, coverage would only register the line as "run" if Django's format machinery actually loads it through the locale discovery path, not a direct import
 
 This is the same category as urls.py — declarative configuration with no logic. The line will remain missing in unit test coverage. The only way to cover it is through integration or end-to-end tests that make real HTTP requests with the English locale active.
-'''
+"""
 
-'''
+"""
 Management commands (389 mutants) — not worth testing in whitebox
 The three commands are fake.py, reset.py, and createuser.py. These are Django management commands invoked via python manage.py <command>. They are heavily interactive/IO-dependent:
 
@@ -43,7 +43,7 @@ The mutants target things like argument strings in add_arguments() calls (e.g. "
 They are more naturally covered by integration or end-to-end tests
 
 In summary: the 450 🫥 mutants are not a gap in your test quality — they reflect a deliberate and correct decision to exclude migration files and management commands from unit whitebox testing. This is standard practice.
-'''
+"""
 
 import copy
 import os
@@ -71,7 +71,6 @@ import babybuddy.templatetags.babybuddy as babybuddy_tags
 import babybuddy.widgets as babybuddy_widgets
 
 from babybuddy.settings.base import strtobool
-
 
 # -----------------------------
 # Bootstrap missing third-party/project modules so the isolated babybuddy app
@@ -161,6 +160,7 @@ except ModuleNotFoundError:
 PROJECT_ROOT = "/mnt/data/babybuddy_extracted"
 if PROJECT_ROOT not in sys.path and os.path.isdir(PROJECT_ROOT):
     sys.path.insert(0, PROJECT_ROOT)
+
 
 # -----------------------------
 # Shared helper / dummy classes
@@ -316,8 +316,12 @@ class TestFormsModule:
         # target file: babybuddy/forms.py | function: BabyBuddyUserForm.__init__ | branch: existing user in read-only group
         instance = DummyUser(exists_value=True)
         kwargs = {"instance": instance, "initial": {}}
-        with patch("django.forms.ModelForm.__init__", return_value=None) as model_form_init:
-            form = babybuddy_forms.BabyBuddyUserForm.__new__(babybuddy_forms.BabyBuddyUserForm)
+        with patch(
+            "django.forms.ModelForm.__init__", return_value=None
+        ) as model_form_init:
+            form = babybuddy_forms.BabyBuddyUserForm.__new__(
+                babybuddy_forms.BabyBuddyUserForm
+            )
             babybuddy_forms.BabyBuddyUserForm.__init__(form, **kwargs)
         assert kwargs["initial"]["is_read_only"] is True
         model_form_init.assert_called_once()
@@ -330,26 +334,38 @@ class TestFormsModule:
         instance = DummyUser(exists_value=False)
         kwargs = {"instance": instance, "initial": {}}
         with patch("django.forms.ModelForm.__init__", return_value=None):
-            form = babybuddy_forms.BabyBuddyUserForm.__new__(babybuddy_forms.BabyBuddyUserForm)
+            form = babybuddy_forms.BabyBuddyUserForm.__new__(
+                babybuddy_forms.BabyBuddyUserForm
+            )
             babybuddy_forms.BabyBuddyUserForm.__init__(form, **kwargs)
         assert kwargs["initial"]["is_read_only"] is False
 
     def test_babybuddy_user_form_init_skips_group_lookup_for_none_instance(self):
         # target file: babybuddy/forms.py | function: BabyBuddyUserForm.__init__ | branch: no instance provided
         kwargs = {"instance": None, "initial": {}}
-        with patch("django.forms.ModelForm.__init__", return_value=None) as model_form_init:
-            form = babybuddy_forms.BabyBuddyUserForm.__new__(babybuddy_forms.BabyBuddyUserForm)
+        with patch(
+            "django.forms.ModelForm.__init__", return_value=None
+        ) as model_form_init:
+            form = babybuddy_forms.BabyBuddyUserForm.__new__(
+                babybuddy_forms.BabyBuddyUserForm
+            )
             babybuddy_forms.BabyBuddyUserForm.__init__(form, **kwargs)
         assert "is_read_only" not in kwargs["initial"]
         model_form_init.assert_called_once()
 
-    def test_babybuddy_user_form_save_read_only_true_disables_superuser_adds_group_and_commits(self):
+    def test_babybuddy_user_form_save_read_only_true_disables_superuser_adds_group_and_commits(
+        self,
+    ):
         # target file: babybuddy/forms.py | function: BabyBuddyUserForm.save | branch: read-only true with commit
         user = DummyUser()
         group = types.SimpleNamespace(id=999)
-        form = babybuddy_forms.BabyBuddyUserForm.__new__(babybuddy_forms.BabyBuddyUserForm)
+        form = babybuddy_forms.BabyBuddyUserForm.__new__(
+            babybuddy_forms.BabyBuddyUserForm
+        )
         form.cleaned_data = {"is_read_only": True}
-        with patch("django.forms.ModelForm.save", return_value=user) as model_form_save, patch.object(
+        with patch(
+            "django.forms.ModelForm.save", return_value=user
+        ) as model_form_save, patch.object(
             babybuddy_forms.Group.objects, "get", return_value=group
         ) as group_get:
             returned = babybuddy_forms.BabyBuddyUserForm.save(form, commit=True)
@@ -359,13 +375,19 @@ class TestFormsModule:
         assert user.groups.add_calls == [999]
         assert user.groups.remove_calls == []
         model_form_save.assert_called_once_with(commit=False)
-        group_get.assert_called_once_with(name=settings.BABY_BUDDY["READ_ONLY_GROUP_NAME"])
+        group_get.assert_called_once_with(
+            name=settings.BABY_BUDDY["READ_ONLY_GROUP_NAME"]
+        )
 
-    def test_babybuddy_user_form_save_read_only_false_enables_superuser_removes_group_and_skips_commit(self):
+    def test_babybuddy_user_form_save_read_only_false_enables_superuser_removes_group_and_skips_commit(
+        self,
+    ):
         # target file: babybuddy/forms.py | function: BabyBuddyUserForm.save | branch: read-only false without commit
         user = DummyUser()
         group = types.SimpleNamespace(id=123)
-        form = babybuddy_forms.BabyBuddyUserForm.__new__(babybuddy_forms.BabyBuddyUserForm)
+        form = babybuddy_forms.BabyBuddyUserForm.__new__(
+            babybuddy_forms.BabyBuddyUserForm
+        )
         form.cleaned_data = {"is_read_only": False}
         with patch("django.forms.ModelForm.save", return_value=user):
             with patch.object(babybuddy_forms.Group.objects, "get", return_value=group):
@@ -379,7 +401,9 @@ class TestFormsModule:
     def test_babybuddy_user_form_save_propagates_missing_cleaned_data_key(self):
         # target file: babybuddy/forms.py | function: BabyBuddyUserForm.save | branch: missing required cleaned_data
         user = DummyUser()
-        form = babybuddy_forms.BabyBuddyUserForm.__new__(babybuddy_forms.BabyBuddyUserForm)
+        form = babybuddy_forms.BabyBuddyUserForm.__new__(
+            babybuddy_forms.BabyBuddyUserForm
+        )
         form.cleaned_data = {}
         with patch("django.forms.ModelForm.save", return_value=user):
             with pytest.raises(KeyError):
@@ -387,16 +411,24 @@ class TestFormsModule:
 
     def test_user_add_form_is_subclass_of_both_expected_bases(self):
         # target file: babybuddy/forms.py | function: UserAddForm | behavior: inheritance contract
-        assert issubclass(babybuddy_forms.UserAddForm, babybuddy_forms.BabyBuddyUserForm)
+        assert issubclass(
+            babybuddy_forms.UserAddForm, babybuddy_forms.BabyBuddyUserForm
+        )
         assert issubclass(babybuddy_forms.UserAddForm, babybuddy_forms.UserCreationForm)
 
     def test_user_update_form_is_subclass_of_babybuddy_user_form(self):
         # target file: babybuddy/forms.py | function: UserUpdateForm | behavior: inheritance contract
-        assert issubclass(babybuddy_forms.UserUpdateForm, babybuddy_forms.BabyBuddyUserForm)
+        assert issubclass(
+            babybuddy_forms.UserUpdateForm, babybuddy_forms.BabyBuddyUserForm
+        )
 
     def test_user_form_meta_fields_are_exact_expected_fields(self):
         # target file: babybuddy/forms.py | function: UserForm.Meta | behavior: field contract
-        assert babybuddy_forms.UserForm.Meta.fields == ["first_name", "last_name", "email"]
+        assert babybuddy_forms.UserForm.Meta.fields == [
+            "first_name",
+            "last_name",
+            "email",
+        ]
 
     def test_user_password_form_meta_fields_are_exact_expected_fields(self):
         # target file: babybuddy/forms.py | function: UserPasswordForm.Meta | behavior: field contract
@@ -424,7 +456,9 @@ class TestFormsModule:
         instance = DummyUser(exists_value=True)
         kwargs = {"instance": instance, "initial": {"other": "value"}}
         with patch("django.forms.ModelForm.__init__", return_value=None):
-            form = babybuddy_forms.BabyBuddyUserForm.__new__(babybuddy_forms.BabyBuddyUserForm)
+            form = babybuddy_forms.BabyBuddyUserForm.__new__(
+                babybuddy_forms.BabyBuddyUserForm
+            )
             babybuddy_forms.BabyBuddyUserForm.__init__(form, **kwargs)
         # The exact key "is_read_only" must be present and "other" must be preserved
         assert "is_read_only" in kwargs["initial"]
@@ -437,15 +471,20 @@ class TestFormsModule:
         # ModelForm.save(), not some other value.
         user = DummyUser()
         group = types.SimpleNamespace(id=42)
-        form = babybuddy_forms.BabyBuddyUserForm.__new__(babybuddy_forms.BabyBuddyUserForm)
+        form = babybuddy_forms.BabyBuddyUserForm.__new__(
+            babybuddy_forms.BabyBuddyUserForm
+        )
         form.cleaned_data = {"is_read_only": False}
-        with patch("django.forms.ModelForm.save", return_value=user), \
-             patch.object(babybuddy_forms.Group.objects, "get", return_value=group):
+        with patch("django.forms.ModelForm.save", return_value=user), patch.object(
+            babybuddy_forms.Group.objects, "get", return_value=group
+        ):
             result = babybuddy_forms.BabyBuddyUserForm.save(form, commit=False)
         assert result is user
 
     ## Fix#2
-    def test_babybuddy_user_form_init_sets_read_only_based_on_exists_result_not_group(self):
+    def test_babybuddy_user_form_init_sets_read_only_based_on_exists_result_not_group(
+        self,
+    ):
         # mutmut_12/_13: the .exists() call result (True/False) is what's stored,
         # not the filter queryset itself. Tests both True and False explicitly.
         for exists_val in [True, False]:
@@ -463,10 +502,13 @@ class TestFormsModule:
         # save mutmut_1: the return value is the user object, not None or something else
         user = DummyUser()
         group = types.SimpleNamespace(id=7)
-        form = babybuddy_forms.BabyBuddyUserForm.__new__(babybuddy_forms.BabyBuddyUserForm)
+        form = babybuddy_forms.BabyBuddyUserForm.__new__(
+            babybuddy_forms.BabyBuddyUserForm
+        )
         form.cleaned_data = {"is_read_only": True}
-        with patch("django.forms.ModelForm.save", return_value=user), \
-             patch.object(babybuddy_forms.Group.objects, "get", return_value=group):
+        with patch("django.forms.ModelForm.save", return_value=user), patch.object(
+            babybuddy_forms.Group.objects, "get", return_value=group
+        ):
             result = babybuddy_forms.BabyBuddyUserForm.save(form, commit=True)
         assert result is user
         assert result is not None
@@ -500,8 +542,12 @@ class TestMixinsModule:
         request = DummyRequest(user=DummyUser(is_staff=True))
         allowed = HttpResponse("allowed")
 
-        with patch.object(AccessMixin, "dispatch", return_value=allowed, create=True) as super_dispatch:
-            response = babybuddy_mixins.StaffOnlyMixin.dispatch(mixin, request, 1, two=2)
+        with patch.object(
+            AccessMixin, "dispatch", return_value=allowed, create=True
+        ) as super_dispatch:
+            response = babybuddy_mixins.StaffOnlyMixin.dispatch(
+                mixin, request, 1, two=2
+            )
 
         assert response is allowed
         super_dispatch.assert_called_once_with(request, 1, two=2)
@@ -518,7 +564,9 @@ class TestMiddlewareModule:
         request = DummyRequest(user=DummyUser(language="fr"), language_code="en")
         get_response = Mock(return_value="response")
         middleware = babybuddy_middleware.UserLanguageMiddleware(get_response)
-        with patch.object(babybuddy_middleware.translation, "activate") as activate, patch.object(
+        with patch.object(
+            babybuddy_middleware.translation, "activate"
+        ) as activate, patch.object(
             babybuddy_middleware.translation, "deactivate"
         ) as deactivate:
             response = middleware(request)
@@ -532,10 +580,12 @@ class TestMiddlewareModule:
         user = DummyUser(language=None)
         user.settings.language = None
         request = DummyRequest(user=user, language_code="es")
-        middleware = babybuddy_middleware.UserLanguageMiddleware(Mock(return_value="ok"))
-        with patch.object(babybuddy_middleware.translation, "activate") as activate, patch.object(
-            babybuddy_middleware.translation, "deactivate"
-        ):
+        middleware = babybuddy_middleware.UserLanguageMiddleware(
+            Mock(return_value="ok")
+        )
+        with patch.object(
+            babybuddy_middleware.translation, "activate"
+        ) as activate, patch.object(babybuddy_middleware.translation, "deactivate"):
             middleware(request)
         activate.assert_called_once_with("es")
 
@@ -544,10 +594,12 @@ class TestMiddlewareModule:
         user = DummyUser(language=None)
         user.settings.language = None
         request = DummyRequest(user=user, language_code="")
-        middleware = babybuddy_middleware.UserLanguageMiddleware(Mock(return_value="ok"))
-        with patch.object(babybuddy_middleware.translation, "activate") as activate, patch.object(
-            babybuddy_middleware.translation, "deactivate"
-        ):
+        middleware = babybuddy_middleware.UserLanguageMiddleware(
+            Mock(return_value="ok")
+        )
+        with patch.object(
+            babybuddy_middleware.translation, "activate"
+        ) as activate, patch.object(babybuddy_middleware.translation, "deactivate"):
             middleware(request)
         activate.assert_called_once_with(settings.LANGUAGE_CODE)
 
@@ -566,7 +618,9 @@ class TestMiddlewareModule:
         request = DummyRequest(user=DummyUser(timezone_name="Not/AZone"))
         get_response = Mock(return_value="response")
         middleware = babybuddy_middleware.UserTimezoneMiddleware(get_response)
-        with patch.object(babybuddy_middleware.timezone, "activate", side_effect=ValueError) as activate:
+        with patch.object(
+            babybuddy_middleware.timezone, "activate", side_effect=ValueError
+        ) as activate:
             response = middleware(request)
         assert response == "response"
         activate.assert_called_once_with("Not/AZone")
@@ -582,11 +636,15 @@ class TestMiddlewareModule:
         assert response == "response"
         activate.assert_not_called()
 
-    def test_rolling_session_middleware_initializes_refresh_for_existing_session_without_marker(self):
+    def test_rolling_session_middleware_initializes_refresh_for_existing_session_without_marker(
+        self,
+    ):
         # target file: babybuddy/middleware.py | function: RollingSessionMiddleware.__call__ | branch: session exists without refresh key
         session = DummySession(existing="yes")
         request = DummyRequest(session=session)
-        middleware = babybuddy_middleware.RollingSessionMiddleware(Mock(return_value="ok"))
+        middleware = babybuddy_middleware.RollingSessionMiddleware(
+            Mock(return_value="ok")
+        )
         with patch.object(babybuddy_middleware, "time", return_value=100):
             response = middleware(request)
         assert response == "ok"
@@ -597,18 +655,28 @@ class TestMiddlewareModule:
         # target file: babybuddy/middleware.py | function: RollingSessionMiddleware.__call__ | branch: expiry refresh triggered
         session = DummySession(session_refresh=1, existing="yes")
         request = DummyRequest(session=session)
-        middleware = babybuddy_middleware.RollingSessionMiddleware(Mock(return_value="ok"))
-        with patch.object(babybuddy_middleware, "time", return_value=settings.ROLLING_SESSION_REFRESH + 10):
+        middleware = babybuddy_middleware.RollingSessionMiddleware(
+            Mock(return_value="ok")
+        )
+        with patch.object(
+            babybuddy_middleware,
+            "time",
+            return_value=settings.ROLLING_SESSION_REFRESH + 10,
+        ):
             middleware(request)
         assert session["session_refresh"] == settings.ROLLING_SESSION_REFRESH + 10
         assert session.expiry_calls == [settings.SESSION_COOKIE_AGE]
 
-    def test_rolling_session_middleware_does_not_refresh_when_delta_is_boundary_equal(self):
+    def test_rolling_session_middleware_does_not_refresh_when_delta_is_boundary_equal(
+        self,
+    ):
         # target file: babybuddy/middleware.py | function: RollingSessionMiddleware.__call__ | branch: strict greater-than comparison boundary
         boundary = settings.ROLLING_SESSION_REFRESH
         session = DummySession(session_refresh=10, existing="yes")
         request = DummyRequest(session=session)
-        middleware = babybuddy_middleware.RollingSessionMiddleware(Mock(return_value="ok"))
+        middleware = babybuddy_middleware.RollingSessionMiddleware(
+            Mock(return_value="ok")
+        )
         with patch.object(babybuddy_middleware, "time", return_value=10 + boundary):
             middleware(request)
         assert session["session_refresh"] == 10
@@ -618,7 +686,9 @@ class TestMiddlewareModule:
         # target file: babybuddy/middleware.py | function: RollingSessionMiddleware.__call__ | branch: invalid refresh value coerced to refresh path
         session = DummySession(session_refresh="not-an-int", existing="yes")
         request = DummyRequest(session=session)
-        middleware = babybuddy_middleware.RollingSessionMiddleware(Mock(return_value="ok"))
+        middleware = babybuddy_middleware.RollingSessionMiddleware(
+            Mock(return_value="ok")
+        )
         with patch.object(babybuddy_middleware, "time", return_value=500):
             middleware(request)
         assert session["session_refresh"] == 500
@@ -628,7 +698,9 @@ class TestMiddlewareModule:
         # target file: babybuddy/middleware.py | function: RollingSessionMiddleware.__call__ | branch: empty refresh marker initializes current time
         session = DummySession(session_refresh=None, existing="yes")
         request = DummyRequest(session=session)
-        middleware = babybuddy_middleware.RollingSessionMiddleware(Mock(return_value="ok"))
+        middleware = babybuddy_middleware.RollingSessionMiddleware(
+            Mock(return_value="ok")
+        )
         with patch.object(babybuddy_middleware, "time", return_value=77):
             middleware(request)
         assert session["session_refresh"] == 77
@@ -648,27 +720,40 @@ class TestMiddlewareModule:
 
     def test_custom_remote_user_skips_api_paths(self):
         # target file: babybuddy/middleware.py | function: CustomRemoteUser.process_request | branch: api path bypass
-        middleware = babybuddy_middleware.CustomRemoteUser.__new__(babybuddy_middleware.CustomRemoteUser)
+        middleware = babybuddy_middleware.CustomRemoteUser.__new__(
+            babybuddy_middleware.CustomRemoteUser
+        )
         request = DummyRequest(path="api/token/")
-        assert babybuddy_middleware.CustomRemoteUser.process_request(middleware, request) is None
+        assert (
+            babybuddy_middleware.CustomRemoteUser.process_request(middleware, request)
+            is None
+        )
 
     def test_custom_remote_user_delegates_non_api_paths_to_super(self):
         # target file: babybuddy/middleware.py | function: CustomRemoteUser.process_request | branch: non-api path delegated
-        middleware = babybuddy_middleware.CustomRemoteUser.__new__(babybuddy_middleware.CustomRemoteUser)
+        middleware = babybuddy_middleware.CustomRemoteUser.__new__(
+            babybuddy_middleware.CustomRemoteUser
+        )
         request = DummyRequest(path="dashboard/")
         with patch(
             "django.contrib.auth.middleware.RemoteUserMiddleware.process_request",
             return_value="super-result",
         ) as super_process:
-            result = babybuddy_middleware.CustomRemoteUser.process_request(middleware, request)
+            result = babybuddy_middleware.CustomRemoteUser.process_request(
+                middleware, request
+            )
         assert result == "super-result"
         super_process.assert_called_once_with(request)
 
-    def test_home_assistant_middleware_disabled_sets_flag_false_and_returns_response(self):
+    def test_home_assistant_middleware_disabled_sets_flag_false_and_returns_response(
+        self,
+    ):
         # target file: babybuddy/middleware.py | function: HomeAssistant.__call__ | branch: middleware disabled
         request = DummyRequest(headers={"X-Hass-Source": "core.ingress"})
         with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", False):
-            middleware = babybuddy_middleware.HomeAssistant(Mock(return_value="response"))
+            middleware = babybuddy_middleware.HomeAssistant(
+                Mock(return_value="response")
+            )
             response = middleware(request)
         assert response == "response"
         assert request.is_homeassistant_ingress_request is False
@@ -677,24 +762,32 @@ class TestMiddlewareModule:
         # target file: babybuddy/middleware.py | function: HomeAssistant.__call__ | branch: support enabled but not ingress
         request = DummyRequest(headers={})
         with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True):
-            middleware = babybuddy_middleware.HomeAssistant(Mock(return_value=HttpResponse("ok")))
+            middleware = babybuddy_middleware.HomeAssistant(
+                Mock(return_value=HttpResponse("ok"))
+            )
             with patch.object(babybuddy_middleware, "set_script_prefix") as set_prefix:
                 response = middleware(request)
         assert response.status_code == 200
         assert request.is_homeassistant_ingress_request is False
         set_prefix.assert_called_once_with(middleware.original_script_prefix)
 
-    def test_home_assistant_middleware_enabled_ingress_without_path_resets_original_prefix(self):
+    def test_home_assistant_middleware_enabled_ingress_without_path_resets_original_prefix(
+        self,
+    ):
         # target file: babybuddy/middleware.py | function: HomeAssistant.__call__ | branch: ingress request missing X-Ingress-Path
         request = DummyRequest(headers={"X-Hass-Source": "core.ingress"})
         with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True):
-            middleware = babybuddy_middleware.HomeAssistant(Mock(return_value=HttpResponse("ok")))
+            middleware = babybuddy_middleware.HomeAssistant(
+                Mock(return_value=HttpResponse("ok"))
+            )
             with patch.object(babybuddy_middleware, "set_script_prefix") as set_prefix:
                 middleware(request)
         assert request.is_homeassistant_ingress_request is True
         set_prefix.assert_called_once_with(middleware.original_script_prefix)
 
-    def test_home_assistant_middleware_redirect_prepends_ingress_prefix_when_missing(self):
+    def test_home_assistant_middleware_redirect_prepends_ingress_prefix_when_missing(
+        self,
+    ):
         # target file: babybuddy/middleware.py | function: HomeAssistant.__call__ | branch: redirect location rewritten
         response = HttpResponseRedirect("/dashboard")
         request = DummyRequest(
@@ -706,7 +799,9 @@ class TestMiddlewareModule:
                 rewritten = middleware(request)
         assert rewritten["Location"].endswith("/ingress/dashboard")
 
-    def test_home_assistant_middleware_redirect_does_not_duplicate_existing_prefix(self):
+    def test_home_assistant_middleware_redirect_does_not_duplicate_existing_prefix(
+        self,
+    ):
         # target file: babybuddy/middleware.py | function: HomeAssistant.__call__ | branch: redirect location already prefixed
         response = HttpResponseRedirect("/ingress/dashboard")
         request = DummyRequest(
@@ -733,17 +828,21 @@ class TestMiddlewareModule:
         assert result is response
         log_error.assert_called_once()
 
-    def test_home_assistant_middleware_rewrites_static_and_media_urls_in_html_response(self):
+    def test_home_assistant_middleware_rewrites_static_and_media_urls_in_html_response(
+        self,
+    ):
         # target file: babybuddy/middleware.py | function: HomeAssistant.__call__ | branch: HTML content rewritten and cookies preserved
         html = b'<img src="/static/app.css"><img src="/media/photo.jpg">'
-        response = DummyResponseWithCookies(content=html, content_type="text/html; charset=utf-8")
+        response = DummyResponseWithCookies(
+            content=html, content_type="text/html; charset=utf-8"
+        )
         response["X-Test"] = "value"
         request = DummyRequest(
             headers={"X-Hass-Source": "core.ingress", "X-Ingress-Path": "/ingress"}
         )
-        with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True), patch.object(
-            babybuddy_middleware, "set_script_prefix"
-        ):
+        with patch.object(
+            settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True
+        ), patch.object(babybuddy_middleware, "set_script_prefix"):
             middleware = babybuddy_middleware.HomeAssistant(Mock(return_value=response))
             rewritten = middleware(request)
         content = rewritten.content.decode()
@@ -760,47 +859,62 @@ class TestMiddlewareModule:
         request = DummyRequest(
             headers={"X-Hass-Source": "core.ingress", "X-Ingress-Path": "/ingress"}
         )
-        with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True), patch.object(
-            babybuddy_middleware, "set_script_prefix"
-        ):
+        with patch.object(
+            settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True
+        ), patch.object(babybuddy_middleware, "set_script_prefix"):
             middleware = babybuddy_middleware.HomeAssistant(Mock(return_value=response))
             rewritten = middleware(request)
         assert rewritten is response
         assert rewritten.content == original_content
 
-    def test_user_language_middleware_skips_activation_when_user_settings_language_is_empty_string(self):
+    def test_user_language_middleware_skips_activation_when_user_settings_language_is_empty_string(
+        self,
+    ):
         # Kills "if hasattr(user, 'settings') and user.settings.language:" mutant that drops the
         # "and user.settings.language" part. user.settings exists but language="" (falsy) →
         # should fall back to request LANGUAGE_CODE, NOT activate the empty string.
         user = DummyUser(language=None)
-        user.settings.language = ""          # has settings attr, but falsy value
+        user.settings.language = ""  # has settings attr, but falsy value
         request = DummyRequest(user=user, language_code="pt")
-        middleware = babybuddy_middleware.UserLanguageMiddleware(Mock(return_value="ok"))
-        with patch.object(babybuddy_middleware.translation, "activate") as activate, \
-             patch.object(babybuddy_middleware.translation, "deactivate"):
+        middleware = babybuddy_middleware.UserLanguageMiddleware(
+            Mock(return_value="ok")
+        )
+        with patch.object(
+            babybuddy_middleware.translation, "activate"
+        ) as activate, patch.object(babybuddy_middleware.translation, "deactivate"):
             middleware(request)
         activate.assert_called_once_with("pt")
 
-    def test_user_language_middleware_does_not_activate_when_all_language_sources_are_falsy(self):
+    def test_user_language_middleware_does_not_activate_when_all_language_sources_are_falsy(
+        self,
+    ):
         # Kills the "if language:" guard mutant that would activate even a None/empty language.
         # user.settings.language=None, LANGUAGE_CODE="", settings.LANGUAGE_CODE="" → language stays falsy.
         user = DummyUser(language=None)
         user.settings.language = None
         request = DummyRequest(user=user, language_code="")
-        middleware = babybuddy_middleware.UserLanguageMiddleware(Mock(return_value="ok"))
-        with patch.object(babybuddy_middleware.translation, "activate") as activate, \
-             patch.object(babybuddy_middleware.translation, "deactivate"), \
-             patch.object(babybuddy_middleware.settings, "LANGUAGE_CODE", ""):
+        middleware = babybuddy_middleware.UserLanguageMiddleware(
+            Mock(return_value="ok")
+        )
+        with patch.object(
+            babybuddy_middleware.translation, "activate"
+        ) as activate, patch.object(
+            babybuddy_middleware.translation, "deactivate"
+        ), patch.object(
+            babybuddy_middleware.settings, "LANGUAGE_CODE", ""
+        ):
             middleware(request)
         activate.assert_not_called()
 
     # --- UserTimezoneMiddleware ---
     ## Fix#1 - add more test
-    def test_user_timezone_middleware_skips_activation_when_user_has_no_settings_attr(self):
+    def test_user_timezone_middleware_skips_activation_when_user_has_no_settings_attr(
+        self,
+    ):
         # Kills mutant that drops the "hasattr(user, 'settings')" check, leaving only the
         # "user.settings.timezone" part which would AttributeError on a bare user object.
         user = DummyUser()
-        del user.settings                    # user has no settings attr
+        del user.settings  # user has no settings attr
         request = DummyRequest(user=user)
         get_response = Mock(return_value="response")
         middleware = babybuddy_middleware.UserTimezoneMiddleware(get_response)
@@ -811,13 +925,17 @@ class TestMiddlewareModule:
 
     # --- RollingSessionMiddleware ---
     ## Fix#1 - add more test
-    def test_rolling_session_middleware_zero_refresh_value_treats_it_as_missing_and_initializes(self):
+    def test_rolling_session_middleware_zero_refresh_value_treats_it_as_missing_and_initializes(
+        self,
+    ):
         # Kills "if session_refresh:" → "if session_refresh is not None:" mutant.
         # session_refresh=0 is falsy but not None → should go to the else branch (initialize),
         # NOT into the try block that computes delta.
         session = DummySession(session_refresh=0, existing="yes")
         request = DummyRequest(session=session)
-        middleware = babybuddy_middleware.RollingSessionMiddleware(Mock(return_value="ok"))
+        middleware = babybuddy_middleware.RollingSessionMiddleware(
+            Mock(return_value="ok")
+        )
         with patch.object(babybuddy_middleware, "time", return_value=200):
             middleware(request)
         # Went to else branch: sets session_refresh to current time, no expiry refresh
@@ -830,7 +948,9 @@ class TestMiddlewareModule:
         # Inject a session_refresh that causes TypeError when subtracted from int (e.g. a list).
         session = DummySession(session_refresh=[1, 2], existing="yes")
         request = DummyRequest(session=session)
-        middleware = babybuddy_middleware.RollingSessionMiddleware(Mock(return_value="ok"))
+        middleware = babybuddy_middleware.RollingSessionMiddleware(
+            Mock(return_value="ok")
+        )
         with patch.object(babybuddy_middleware, "time", return_value=500):
             middleware(request)
         assert session["session_refresh"] == 500
@@ -858,12 +978,15 @@ class TestMiddlewareModule:
         # Kills mutant that drops the .lower() call on Content-Type before startswith check.
         # "Text/HTML" would not match "text/html" without .lower().
         html = b'<img src="/static/app.css">'
-        response = DummyResponseWithCookies(content=html, content_type="Text/HTML; charset=utf-8")
+        response = DummyResponseWithCookies(
+            content=html, content_type="Text/HTML; charset=utf-8"
+        )
         request = DummyRequest(
             headers={"X-Hass-Source": "core.ingress", "X-Ingress-Path": "/ingress"}
         )
-        with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True), \
-             patch.object(babybuddy_middleware, "set_script_prefix"):
+        with patch.object(
+            settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True
+        ), patch.object(babybuddy_middleware, "set_script_prefix"):
             middleware = babybuddy_middleware.HomeAssistant(Mock(return_value=response))
             rewritten = middleware(request)
         content = rewritten.content.decode()
@@ -877,10 +1000,16 @@ class TestMiddlewareModule:
         user = DummyUser(language=None)
         user.settings.language = None
         request = DummyRequest(user=user, language_code="")
-        middleware = babybuddy_middleware.UserLanguageMiddleware(Mock(return_value="ok"))
-        with patch.object(babybuddy_middleware.translation, "activate") as activate, \
-             patch.object(babybuddy_middleware.translation, "deactivate"), \
-             patch.object(babybuddy_middleware.settings, "LANGUAGE_CODE", ""):
+        middleware = babybuddy_middleware.UserLanguageMiddleware(
+            Mock(return_value="ok")
+        )
+        with patch.object(
+            babybuddy_middleware.translation, "activate"
+        ) as activate, patch.object(
+            babybuddy_middleware.translation, "deactivate"
+        ), patch.object(
+            babybuddy_middleware.settings, "LANGUAGE_CODE", ""
+        ):
             middleware(request)
         activate.assert_not_called()
 
@@ -892,7 +1021,9 @@ class TestMiddlewareModule:
         user = DummyUser()
         del user.settings
         request = DummyRequest(user=user)
-        middleware = babybuddy_middleware.UserTimezoneMiddleware(Mock(return_value="ok"))
+        middleware = babybuddy_middleware.UserTimezoneMiddleware(
+            Mock(return_value="ok")
+        )
         with patch.object(babybuddy_middleware.timezone, "activate") as activate:
             response = middleware(request)
         assert response == "ok"
@@ -900,12 +1031,16 @@ class TestMiddlewareModule:
 
     # --- RollingSessionMiddleware mutmut_10 / mutmut_21 ---
     ## Fix#1 - add more test
-    def test_rolling_session_middleware_zero_refresh_initializes_rather_than_computing_delta(self):
+    def test_rolling_session_middleware_zero_refresh_initializes_rather_than_computing_delta(
+        self,
+    ):
         # Kills mutmut_10: "if session_refresh:" → "if session_refresh is not None:"
         # session_refresh=0 is falsy → should go to else (initialize), not compute delta.
         session = DummySession(session_refresh=0, existing="yes")
         request = DummyRequest(session=session)
-        middleware = babybuddy_middleware.RollingSessionMiddleware(Mock(return_value="ok"))
+        middleware = babybuddy_middleware.RollingSessionMiddleware(
+            Mock(return_value="ok")
+        )
         with patch.object(babybuddy_middleware, "time", return_value=200):
             middleware(request)
         assert session["session_refresh"] == 200
@@ -917,7 +1052,9 @@ class TestMiddlewareModule:
         # A list value causes TypeError on int subtraction → must still refresh.
         session = DummySession(session_refresh=[1, 2], existing="yes")
         request = DummyRequest(session=session)
-        middleware = babybuddy_middleware.RollingSessionMiddleware(Mock(return_value="ok"))
+        middleware = babybuddy_middleware.RollingSessionMiddleware(
+            Mock(return_value="ok")
+        )
         with patch.object(babybuddy_middleware, "time", return_value=500):
             middleware(request)
         assert session["session_refresh"] == 500
@@ -927,8 +1064,11 @@ class TestMiddlewareModule:
     ## Fix#1 - add more test
     def test_home_assistant_init_stores_original_script_prefix(self):
         # Kills mutmut_3: the original_script_prefix assignment in __init__.
-        with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", False), \
-             patch.object(babybuddy_middleware, "get_script_prefix", return_value="/myprefix"):
+        with patch.object(
+            settings, "ENABLE_HOME_ASSISTANT_SUPPORT", False
+        ), patch.object(
+            babybuddy_middleware, "get_script_prefix", return_value="/myprefix"
+        ):
             mw = babybuddy_middleware.HomeAssistant(Mock(return_value=HttpResponse()))
         assert mw.original_script_prefix == "/myprefix"
 
@@ -942,8 +1082,9 @@ class TestMiddlewareModule:
         request = DummyRequest(
             headers={"X-Hass-Source": "core.ingress", "X-Ingress-Path": "/ingress"}
         )
-        with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True), \
-             patch.object(babybuddy_middleware, "set_script_prefix"):
+        with patch.object(
+            settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True
+        ), patch.object(babybuddy_middleware, "set_script_prefix"):
             mw = babybuddy_middleware.HomeAssistant(Mock(return_value=response))
             result = mw(request)
         assert result is response
@@ -958,8 +1099,9 @@ class TestMiddlewareModule:
         request = DummyRequest(
             headers={"X-Hass-Source": "core.ingress", "X-Ingress-Path": "/ingress"}
         )
-        with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True), \
-             patch.object(babybuddy_middleware, "set_script_prefix"):
+        with patch.object(
+            settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True
+        ), patch.object(babybuddy_middleware, "set_script_prefix"):
             mw = babybuddy_middleware.HomeAssistant(Mock(return_value=response))
             result = mw(request)
         assert "/ingress" in result["Location"]
@@ -971,8 +1113,9 @@ class TestMiddlewareModule:
         request = DummyRequest(
             headers={"X-Hass-Source": "core.ingress", "X-Ingress-Path": "/ingress"}
         )
-        with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True), \
-             patch.object(babybuddy_middleware, "set_script_prefix"):
+        with patch.object(
+            settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True
+        ), patch.object(babybuddy_middleware, "set_script_prefix"):
             mw = babybuddy_middleware.HomeAssistant(Mock(return_value=response))
             result = mw(request)
         assert "/ingress" in result["Location"]
@@ -984,8 +1127,9 @@ class TestMiddlewareModule:
         request = DummyRequest(
             headers={"X-Hass-Source": "core.ingress", "X-Ingress-Path": "/ingress"}
         )
-        with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True), \
-             patch.object(babybuddy_middleware, "set_script_prefix"):
+        with patch.object(
+            settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True
+        ), patch.object(babybuddy_middleware, "set_script_prefix"):
             mw = babybuddy_middleware.HomeAssistant(Mock(return_value=response))
             result = mw(request)
         assert "/ingress" in result["Location"]
@@ -997,8 +1141,9 @@ class TestMiddlewareModule:
         request = DummyRequest(
             headers={"X-Hass-Source": "core.ingress", "X-Ingress-Path": "/ingress"}
         )
-        with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True), \
-             patch.object(babybuddy_middleware, "set_script_prefix"):
+        with patch.object(
+            settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True
+        ), patch.object(babybuddy_middleware, "set_script_prefix"):
             mw = babybuddy_middleware.HomeAssistant(Mock(return_value=response))
             result = mw(request)
         assert result["Location"] == "/ingress/dashboard"
@@ -1009,12 +1154,15 @@ class TestMiddlewareModule:
         # Kills mutants on the single-quote replacement branches for static/media.
         static = settings.STATIC_URL.rstrip("/")
         html = f"'<img src='{static}/app.css'>".encode()
-        response = DummyResponseWithCookies(content=html, content_type="text/html; charset=utf-8")
+        response = DummyResponseWithCookies(
+            content=html, content_type="text/html; charset=utf-8"
+        )
         request = DummyRequest(
             headers={"X-Hass-Source": "core.ingress", "X-Ingress-Path": "/ingress"}
         )
-        with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True), \
-             patch.object(babybuddy_middleware, "set_script_prefix"):
+        with patch.object(
+            settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True
+        ), patch.object(babybuddy_middleware, "set_script_prefix"):
             mw = babybuddy_middleware.HomeAssistant(Mock(return_value=response))
             result = mw(request)
         assert f"'/ingress{static}" in result.content.decode()
@@ -1024,27 +1172,35 @@ class TestMiddlewareModule:
         # Kills mutants on the media URL replacement branches.
         media = settings.MEDIA_URL.rstrip("/")
         html = f'<img src="{media}/photo.jpg">'.encode()
-        response = DummyResponseWithCookies(content=html, content_type="text/html; charset=utf-8")
+        response = DummyResponseWithCookies(
+            content=html, content_type="text/html; charset=utf-8"
+        )
         request = DummyRequest(
             headers={"X-Hass-Source": "core.ingress", "X-Ingress-Path": "/ingress"}
         )
-        with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True), \
-             patch.object(babybuddy_middleware, "set_script_prefix"):
+        with patch.object(
+            settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True
+        ), patch.object(babybuddy_middleware, "set_script_prefix"):
             mw = babybuddy_middleware.HomeAssistant(Mock(return_value=response))
             result = mw(request)
         assert f'"/ingress{media}' in result.content.decode()
 
     ## Fix#1 - add more test
-    def test_home_assistant_middleware_content_headers_stripped_from_rebuilt_response(self):
+    def test_home_assistant_middleware_content_headers_stripped_from_rebuilt_response(
+        self,
+    ):
         # Kills mutants on the filtered_headers comprehension that excludes content- headers.
         html = b"<html></html>"
-        response = DummyResponseWithCookies(content=html, content_type="text/html; charset=utf-8")
+        response = DummyResponseWithCookies(
+            content=html, content_type="text/html; charset=utf-8"
+        )
         response["X-Custom"] = "keep-me"
         request = DummyRequest(
             headers={"X-Hass-Source": "core.ingress", "X-Ingress-Path": "/ingress"}
         )
-        with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True), \
-             patch.object(babybuddy_middleware, "set_script_prefix"):
+        with patch.object(
+            settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True
+        ), patch.object(babybuddy_middleware, "set_script_prefix"):
             mw = babybuddy_middleware.HomeAssistant(Mock(return_value=response))
             result = mw(request)
         assert result["X-Custom"] == "keep-me"
@@ -1059,7 +1215,9 @@ class TestMiddlewareModule:
         user = DummyUser()
         del user.settings
         request = DummyRequest(user=user)
-        middleware = babybuddy_middleware.UserTimezoneMiddleware(Mock(return_value="ok"))
+        middleware = babybuddy_middleware.UserTimezoneMiddleware(
+            Mock(return_value="ok")
+        )
         with patch.object(babybuddy_middleware.timezone, "activate") as activate:
             response = middleware(request)
         assert response == "ok"
@@ -1072,7 +1230,9 @@ class TestMiddlewareModule:
         # 0 is falsy but not None — must go to else (initialize), not try block.
         session = DummySession(session_refresh=0, existing="yes")
         request = DummyRequest(session=session)
-        middleware = babybuddy_middleware.RollingSessionMiddleware(Mock(return_value="ok"))
+        middleware = babybuddy_middleware.RollingSessionMiddleware(
+            Mock(return_value="ok")
+        )
         with patch.object(babybuddy_middleware, "time", return_value=300):
             middleware(request)
         assert session["session_refresh"] == 300
@@ -1085,7 +1245,9 @@ class TestMiddlewareModule:
         # A list causes TypeError on int subtraction → must still trigger refresh.
         session = DummySession(session_refresh=[1, 2], existing="yes")
         request = DummyRequest(session=session)
-        middleware = babybuddy_middleware.RollingSessionMiddleware(Mock(return_value="ok"))
+        middleware = babybuddy_middleware.RollingSessionMiddleware(
+            Mock(return_value="ok")
+        )
         with patch.object(babybuddy_middleware, "time", return_value=600):
             middleware(request)
         assert session["session_refresh"] == 600
@@ -1100,8 +1262,9 @@ class TestMiddlewareModule:
         request = DummyRequest(
             headers={"X-Hass-Source": "core.ingress", "X-Ingress-Path": "/ingress"}
         )
-        with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True), \
-             patch.object(babybuddy_middleware, "set_script_prefix"):
+        with patch.object(
+            settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True
+        ), patch.object(babybuddy_middleware, "set_script_prefix"):
             mw = babybuddy_middleware.HomeAssistant(Mock(return_value=response))
             result = mw(request)
         location = result["Location"]
@@ -1116,8 +1279,9 @@ class TestMiddlewareModule:
         request = DummyRequest(
             headers={"X-Hass-Source": "core.ingress", "X-Ingress-Path": "/ingress"}
         )
-        with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True), \
-             patch.object(babybuddy_middleware, "set_script_prefix"):
+        with patch.object(
+            settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True
+        ), patch.object(babybuddy_middleware, "set_script_prefix"):
             mw = babybuddy_middleware.HomeAssistant(Mock(return_value=response))
             result = mw(request)
         assert "next=/home" in result["Location"]
@@ -1134,8 +1298,9 @@ class TestMiddlewareModule:
         request = DummyRequest(
             headers={"X-Hass-Source": "core.ingress", "X-Ingress-Path": "/ingress"}
         )
-        with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True), \
-             patch.object(babybuddy_middleware, "set_script_prefix"):
+        with patch.object(
+            settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True
+        ), patch.object(babybuddy_middleware, "set_script_prefix"):
             mw = babybuddy_middleware.HomeAssistant(Mock(return_value=response))
             result = mw(request)
         assert result.status_code == 200
@@ -1150,8 +1315,9 @@ class TestMiddlewareModule:
         request = DummyRequest(
             headers={"X-Hass-Source": "core.ingress", "X-Ingress-Path": "/ingress"}
         )
-        with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True), \
-             patch.object(babybuddy_middleware, "set_script_prefix"):
+        with patch.object(
+            settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True
+        ), patch.object(babybuddy_middleware, "set_script_prefix"):
             mw = babybuddy_middleware.HomeAssistant(Mock(return_value=response))
             result = mw(request)
         assert "text/html" in result["Content-Type"]
@@ -1166,8 +1332,9 @@ class TestMiddlewareModule:
         request = DummyRequest(
             headers={"X-Hass-Source": "core.ingress", "X-Ingress-Path": "/ingress"}
         )
-        with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True), \
-             patch.object(babybuddy_middleware, "set_script_prefix"):
+        with patch.object(
+            settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True
+        ), patch.object(babybuddy_middleware, "set_script_prefix"):
             mw = babybuddy_middleware.HomeAssistant(Mock(return_value=response))
             result = mw(request)
         assert result.cookies["csrftoken"].value == "abc"
@@ -1183,8 +1350,9 @@ class TestMiddlewareModule:
         request = DummyRequest(
             headers={"X-Hass-Source": "core.ingress", "X-Ingress-Path": "/ingress"}
         )
-        with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True), \
-             patch.object(babybuddy_middleware, "set_script_prefix"):
+        with patch.object(
+            settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True
+        ), patch.object(babybuddy_middleware, "set_script_prefix"):
             mw = babybuddy_middleware.HomeAssistant(Mock(return_value=response))
             result = mw(request)
         assert b"Hello" in result.content
@@ -1206,15 +1374,16 @@ class TestMiddlewareModule:
         request = DummyRequest(
             headers={"X-Hass-Source": "core.ingress", "X-Ingress-Path": "/ingress"}
         )
-        with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True), \
-             patch.object(babybuddy_middleware, "set_script_prefix"):
+        with patch.object(
+            settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True
+        ), patch.object(babybuddy_middleware, "set_script_prefix"):
             mw = babybuddy_middleware.HomeAssistant(Mock(return_value=response))
             result = mw(request)
         content = result.content.decode()
-        assert f'"/ingress{static}' in content   # double-quote static
-        assert f"'/ingress{static}" in content   # single-quote static
-        assert f'"/ingress{media}' in content    # double-quote media
-        assert f"'/ingress{media}" in content    # single-quote media
+        assert f'"/ingress{static}' in content  # double-quote static
+        assert f"'/ingress{static}" in content  # single-quote static
+        assert f'"/ingress{media}' in content  # double-quote media
+        assert f"'/ingress{media}" in content  # single-quote media
 
     ## Fix#2
     def test_home_assistant_html_filtered_headers_exclude_content_headers(self):
@@ -1228,8 +1397,9 @@ class TestMiddlewareModule:
         request = DummyRequest(
             headers={"X-Hass-Source": "core.ingress", "X-Ingress-Path": "/ingress"}
         )
-        with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True), \
-             patch.object(babybuddy_middleware, "set_script_prefix"):
+        with patch.object(
+            settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True
+        ), patch.object(babybuddy_middleware, "set_script_prefix"):
             mw = babybuddy_middleware.HomeAssistant(Mock(return_value=response))
             result = mw(request)
         headers_lower = {k.lower() for k in dict(result.items())}
@@ -1248,8 +1418,9 @@ class TestMiddlewareModule:
         request = DummyRequest(
             headers={"X-Hass-Source": "core.ingress", "X-Ingress-Path": "/ingress"}
         )
-        with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True), \
-             patch.object(babybuddy_middleware, "set_script_prefix"):
+        with patch.object(
+            settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True
+        ), patch.object(babybuddy_middleware, "set_script_prefix"):
             mw = babybuddy_middleware.HomeAssistant(Mock(return_value=response))
             result = mw(request)
         content = result.content.decode()
@@ -1267,8 +1438,9 @@ class TestMiddlewareModule:
         request = DummyRequest(
             headers={"X-Hass-Source": "core.ingress", "X-Ingress-Path": "/ingress"}
         )
-        with patch.object(settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True), \
-             patch.object(babybuddy_middleware, "set_script_prefix"):
+        with patch.object(
+            settings, "ENABLE_HOME_ASSISTANT_SUPPORT", True
+        ), patch.object(babybuddy_middleware, "set_script_prefix"):
             mw = babybuddy_middleware.HomeAssistant(Mock(return_value=response))
             result = mw(request)
         content = result.content.decode()
@@ -1334,7 +1506,9 @@ class TestTemplateTagsModule:
 
     def test_axes_lockout_message_returns_helper_value(self):
         # target file: babybuddy/templatetags/babybuddy.py | function: axes_lockout_message | behavior: delegated helper value
-        with patch.object(babybuddy_tags, "get_lockout_message", return_value="LOCKED") as helper:
+        with patch.object(
+            babybuddy_tags, "get_lockout_message", return_value="LOCKED"
+        ) as helper:
             assert babybuddy_tags.axes_lockout_message() == "LOCKED"
         helper.assert_called_once_with()
 
@@ -1355,13 +1529,17 @@ class TestTemplateTagsModule:
     def test_version_string_reads_value_from_app_config(self):
         # target file: babybuddy/templatetags/babybuddy.py | function: version_string | behavior: app config lookup
         config = types.SimpleNamespace(version_string="1.2.3 (abc123)")
-        with patch.object(babybuddy_tags.apps, "get_app_config", return_value=config) as get_app_config:
+        with patch.object(
+            babybuddy_tags.apps, "get_app_config", return_value=config
+        ) as get_app_config:
             assert babybuddy_tags.version_string() == "1.2.3 (abc123)"
         get_app_config.assert_called_once_with("babybuddy")
 
     def test_get_current_locale_delegates_to_locale_converter(self):
         # target file: babybuddy/templatetags/babybuddy.py | function: get_current_locale | behavior: translation helpers composed correctly
-        with patch.object(babybuddy_tags, "get_language", return_value="en-us") as get_lang, patch.object(
+        with patch.object(
+            babybuddy_tags, "get_language", return_value="en-us"
+        ) as get_lang, patch.object(
             babybuddy_tags, "to_locale", return_value="en_US"
         ) as to_locale:
             assert babybuddy_tags.get_current_locale() == "en_US"
@@ -1376,21 +1554,28 @@ class TestTemplateTagsModule:
 
     def test_get_current_timezone_delegates_to_timezone_helper(self):
         # target file: babybuddy/templatetags/babybuddy.py | function: get_current_timezone | behavior: helper delegation
-        with patch.object(babybuddy_tags.timezone, "get_current_timezone_name", return_value="UTC") as helper:
+        with patch.object(
+            babybuddy_tags.timezone, "get_current_timezone_name", return_value="UTC"
+        ) as helper:
             assert babybuddy_tags.get_current_timezone() == "UTC"
         helper.assert_called_once_with()
 
     def test_make_absolute_url_calls_request_build_absolute_uri(self):
         # target file: babybuddy/templatetags/babybuddy.py | function: make_absolute_url | behavior: request helper delegation
         request = DummyRequest()
-        assert babybuddy_tags.make_absolute_url({"request": request}, "/x/") == "https://example.test/x/"
+        assert (
+            babybuddy_tags.make_absolute_url({"request": request}, "/x/")
+            == "https://example.test/x/"
+        )
 
     def test_user_is_locked_true_when_access_attempt_exists(self):
         # target file: babybuddy/templatetags/babybuddy.py | function: user_is_locked | branch: lockout exists
         user = DummyUser(username="bob")
         filter_result = Mock()
         filter_result.exists.return_value = True
-        with patch.object(babybuddy_tags.AccessAttempt.objects, "filter", return_value=filter_result) as filt:
+        with patch.object(
+            babybuddy_tags.AccessAttempt.objects, "filter", return_value=filter_result
+        ) as filt:
             assert babybuddy_tags.user_is_locked(user) is True
         filt.assert_called_once_with(username="bob")
 
@@ -1399,14 +1584,18 @@ class TestTemplateTagsModule:
         user = DummyUser(username="bob")
         filter_result = Mock()
         filter_result.exists.return_value = False
-        with patch.object(babybuddy_tags.AccessAttempt.objects, "filter", return_value=filter_result):
+        with patch.object(
+            babybuddy_tags.AccessAttempt.objects, "filter", return_value=filter_result
+        ):
             assert babybuddy_tags.user_is_locked(user) is False
 
     def test_user_is_read_only_true_when_group_exists(self):
         # target file: babybuddy/templatetags/babybuddy.py | function: user_is_read_only | branch: read-only group exists
         user = DummyUser(exists_value=True)
         assert babybuddy_tags.user_is_read_only(user) is True
-        assert user.groups.filter_calls == [{"name": settings.BABY_BUDDY["READ_ONLY_GROUP_NAME"]}]
+        assert user.groups.filter_calls == [
+            {"name": settings.BABY_BUDDY["READ_ONLY_GROUP_NAME"]}
+        ]
 
     def test_user_is_read_only_false_when_group_missing(self):
         # target file: babybuddy/templatetags/babybuddy.py | function: user_is_read_only | branch: read-only group missing
@@ -1453,8 +1642,11 @@ class TestModelsModule:
         dummy_user = DummyUser()
         settings_obj._state = types.SimpleNamespace(fields_cache={"user": dummy_user})
 
-        with patch.object(babybuddy_models.Token.objects, "get_or_create", return_value=(token, True)) as get_or_create, \
-             patch.object(babybuddy_models.Token.objects, "get") as get_token:
+        with patch.object(
+            babybuddy_models.Token.objects, "get_or_create", return_value=(token, True)
+        ) as get_or_create, patch.object(
+            babybuddy_models.Token.objects, "get"
+        ) as get_token:
             assert settings_obj.api_key(reset=False) is token
 
         get_token.assert_not_called()
@@ -1468,22 +1660,29 @@ class TestModelsModule:
         dummy_user = DummyUser()
         settings_obj._state = types.SimpleNamespace(fields_cache={"user": dummy_user})
 
-        with patch.object(babybuddy_models.Token.objects, "get", return_value=existing_token) as get_token, \
-             patch.object(babybuddy_models.Token.objects, "get_or_create", return_value=(token, False)) as get_or_create:
+        with patch.object(
+            babybuddy_models.Token.objects, "get", return_value=existing_token
+        ) as get_token, patch.object(
+            babybuddy_models.Token.objects, "get_or_create", return_value=(token, False)
+        ) as get_or_create:
             assert settings_obj.api_key(reset=True) is token
 
         get_token.assert_called_once_with(user=settings_obj.user)
         existing_token.delete.assert_called_once_with()
         get_or_create.assert_called_once_with(user=settings_obj.user)
 
-    def test_settings_dashboard_refresh_rate_milliseconds_returns_none_when_disabled(self):
+    def test_settings_dashboard_refresh_rate_milliseconds_returns_none_when_disabled(
+        self,
+    ):
         # target file: babybuddy/models.py | function: Settings.dashboard_refresh_rate_milliseconds | branch: disabled refresh rate
         settings_obj = object.__new__(babybuddy_models.Settings)
         settings_obj.__dict__["dashboard_refresh_rate"] = None
 
         assert settings_obj.dashboard_refresh_rate_milliseconds is None
 
-    def test_settings_dashboard_refresh_rate_milliseconds_converts_seconds_to_milliseconds(self):
+    def test_settings_dashboard_refresh_rate_milliseconds_converts_seconds_to_milliseconds(
+        self,
+    ):
         # target file: babybuddy/models.py | function: Settings.dashboard_refresh_rate_milliseconds | branch: normal conversion
         refresh = babybuddy_models.timezone.timedelta(seconds=90)
         settings_obj = object.__new__(babybuddy_models.Settings)
@@ -1491,7 +1690,9 @@ class TestModelsModule:
 
         assert settings_obj.dashboard_refresh_rate_milliseconds == 90000
 
-    def test_settings_dashboard_refresh_rate_milliseconds_uses_seconds_component_only(self):
+    def test_settings_dashboard_refresh_rate_milliseconds_uses_seconds_component_only(
+        self,
+    ):
         # target file: babybuddy/models.py | function: Settings.dashboard_refresh_rate_milliseconds | boundary: timedelta with days uses .seconds contract
         refresh = babybuddy_models.timezone.timedelta(days=1, seconds=5)
         settings_obj = object.__new__(babybuddy_models.Settings)
@@ -1503,14 +1704,18 @@ class TestModelsModule:
         # target file: babybuddy/models.py | function: create_user_settings | branch: created true
         instance = DummyUser()
         with patch.object(babybuddy_models.Settings.objects, "create") as create:
-            babybuddy_models.create_user_settings(sender=object(), instance=instance, created=True)
+            babybuddy_models.create_user_settings(
+                sender=object(), instance=instance, created=True
+            )
         create.assert_called_once_with(user=instance)
 
     def test_create_user_settings_does_nothing_when_created_flag_false(self):
         # target file: babybuddy/models.py | function: create_user_settings | branch: created false
         instance = DummyUser()
         with patch.object(babybuddy_models.Settings.objects, "create") as create:
-            babybuddy_models.create_user_settings(sender=object(), instance=instance, created=False)
+            babybuddy_models.create_user_settings(
+                sender=object(), instance=instance, created=False
+            )
         create.assert_not_called()
 
     def test_save_user_settings_calls_nested_settings_save(self):
@@ -1524,12 +1729,14 @@ class TestModelsModule:
         # Kills models.Settings.api_key__mutmut_1: ensures reset=False path
         # never calls Token.objects.get() (only get_or_create).
         import babybuddy.models as babybuddy_models
+
         token = object()
         settings_obj = object.__new__(babybuddy_models.Settings)
         settings_obj._state = types.SimpleNamespace(fields_cache={"user": DummyUser()})
 
-        with patch.object(babybuddy_models.Token.objects, "get_or_create", return_value=(token, False)) as goc, \
-             patch.object(babybuddy_models.Token.objects, "get") as get_tok:
+        with patch.object(
+            babybuddy_models.Token.objects, "get_or_create", return_value=(token, False)
+        ) as goc, patch.object(babybuddy_models.Token.objects, "get") as get_tok:
             result = settings_obj.api_key(reset=False)
 
         assert result is token
@@ -1549,7 +1756,9 @@ class TestViewsModule:
         request.META["HTTP_ORIGIN"] = "https://evil.example"
         template = Mock()
         template.render.return_value = "rendered"
-        with patch.object(babybuddy_views.loader, "get_template", return_value=template) as get_template:
+        with patch.object(
+            babybuddy_views.loader, "get_template", return_value=template
+        ) as get_template:
             response = babybuddy_views.csrf_failure(
                 request,
                 babybuddy_views.REASON_BAD_ORIGIN % request.META["HTTP_ORIGIN"],
@@ -1561,7 +1770,9 @@ class TestViewsModule:
     def test_csrf_failure_delegates_to_default_handler_for_other_reasons(self):
         # target file: babybuddy/views.py | function: csrf_failure | branch: non-matching reason fallback
         request = DummyRequest()
-        with patch.object(babybuddy_views.csrf, "csrf_failure", return_value="fallback") as fallback:
+        with patch.object(
+            babybuddy_views.csrf, "csrf_failure", return_value="fallback"
+        ) as fallback:
             result = babybuddy_views.csrf_failure(request, "different reason")
         assert result == "fallback"
         fallback.assert_called_once_with(request, "different reason", "403_csrf.html")
@@ -1569,19 +1780,28 @@ class TestViewsModule:
     def test_root_router_get_redirect_url_sets_dashboard_url_before_super_call(self):
         # target file: babybuddy/views.py | function: RootRouter.get_redirect_url | behavior: dashboard redirect target
         router = babybuddy_views.RootRouter()
-        with patch.object(babybuddy_views, "reverse", return_value="/dashboard/"), patch(
-            "django.views.generic.base.RedirectView.get_redirect_url", return_value="/dashboard/"
+        with patch.object(
+            babybuddy_views, "reverse", return_value="/dashboard/"
+        ), patch(
+            "django.views.generic.base.RedirectView.get_redirect_url",
+            return_value="/dashboard/",
         ) as super_redirect:
             result = router.get_redirect_url()
         assert result == "/dashboard/"
         assert router.url == "/dashboard/"
         assert super_redirect.called
 
-    def test_babybuddy_filter_view_sets_unique_child_when_exactly_one_child_present(self):
+    def test_babybuddy_filter_view_sets_unique_child_when_exactly_one_child_present(
+        self,
+    ):
         # target file: babybuddy/views.py | function: BabyBuddyFilterView.get_context_data | branch: exactly one unique child
         view = babybuddy_views.BabyBuddyFilterView()
         context = {
-            "object_list": [DummyObjectWithChild("a"), DummyObjectWithChild("a"), DummyNoChildObject()]
+            "object_list": [
+                DummyObjectWithChild("a"),
+                DummyObjectWithChild("a"),
+                DummyNoChildObject(),
+            ]
         }
         with patch(
             "django_filters.views.FilterView.get_context_data",
@@ -1591,19 +1811,29 @@ class TestViewsModule:
         assert result["unique_child"] is True
         super_context.assert_called_once_with(extra=True)
 
-    def test_babybuddy_filter_view_does_not_set_unique_child_when_multiple_children_present(self):
+    def test_babybuddy_filter_view_does_not_set_unique_child_when_multiple_children_present(
+        self,
+    ):
         # target file: babybuddy/views.py | function: BabyBuddyFilterView.get_context_data | branch: multiple unique children
         view = babybuddy_views.BabyBuddyFilterView()
-        context = {"object_list": [DummyObjectWithChild("a"), DummyObjectWithChild("b")]}
-        with patch("django_filters.views.FilterView.get_context_data", return_value=context):
+        context = {
+            "object_list": [DummyObjectWithChild("a"), DummyObjectWithChild("b")]
+        }
+        with patch(
+            "django_filters.views.FilterView.get_context_data", return_value=context
+        ):
             result = view.get_context_data()
         assert "unique_child" not in result
 
-    def test_babybuddy_filter_view_does_not_set_unique_child_when_no_child_attrs_present(self):
+    def test_babybuddy_filter_view_does_not_set_unique_child_when_no_child_attrs_present(
+        self,
+    ):
         # target file: babybuddy/views.py | function: BabyBuddyFilterView.get_context_data | branch: no child-bearing objects
         view = babybuddy_views.BabyBuddyFilterView()
         context = {"object_list": [DummyNoChildObject(), DummyNoChildObject()]}
-        with patch("django_filters.views.FilterView.get_context_data", return_value=context):
+        with patch(
+            "django_filters.views.FilterView.get_context_data", return_value=context
+        ):
             result = view.get_context_data()
         assert "unique_child" not in result
 
@@ -1644,7 +1874,9 @@ class TestViewsModule:
         # target file: babybuddy/views.py | function: UserUnlock.get_success_url | behavior: pk forwarded into reverse
         view = babybuddy_views.UserUnlock()
         view.kwargs = {"pk": 77}
-        with patch.object(babybuddy_views, "reverse", return_value="/users/77/") as reverse:
+        with patch.object(
+            babybuddy_views, "reverse", return_value="/users/77/"
+        ) as reverse:
             assert view.get_success_url() == "/users/77/"
         reverse.assert_called_once_with("babybuddy:user-update", kwargs={"pk": 77})
 
@@ -1675,9 +1907,13 @@ class TestViewsModule:
         form.is_valid.return_value = True
         form.save.return_value = saved_user
         view = babybuddy_views.UserPassword()
-        with patch.object(babybuddy_views, "PasswordChangeForm", return_value=form) as form_cls, patch.object(
+        with patch.object(
+            babybuddy_views, "PasswordChangeForm", return_value=form
+        ) as form_cls, patch.object(
             babybuddy_views, "update_session_auth_hash"
-        ) as update_hash, patch.object(babybuddy_views.messages, "success") as success, patch.object(
+        ) as update_hash, patch.object(
+            babybuddy_views.messages, "success"
+        ) as success, patch.object(
             babybuddy_views, "render", return_value="rendered"
         ) as render:
             response = view.post(request)
@@ -1694,9 +1930,13 @@ class TestViewsModule:
         form = Mock()
         form.is_valid.return_value = False
         view = babybuddy_views.UserPassword()
-        with patch.object(babybuddy_views, "PasswordChangeForm", return_value=form), patch.object(
+        with patch.object(
+            babybuddy_views, "PasswordChangeForm", return_value=form
+        ), patch.object(
             babybuddy_views, "update_session_auth_hash"
-        ) as update_hash, patch.object(babybuddy_views.messages, "success") as success, patch.object(
+        ) as update_hash, patch.object(
+            babybuddy_views.messages, "success"
+        ) as success, patch.object(
             babybuddy_views, "render", return_value="rendered"
         ) as render:
             response = view.post(request)
@@ -1706,7 +1946,9 @@ class TestViewsModule:
         success.assert_not_called()
         render.assert_called_once_with(request, view.template_name, {"form": form})
 
-    def test_handle_api_regenerate_request_returns_true_and_regenerates_key_when_flag_present(self):
+    def test_handle_api_regenerate_request_returns_true_and_regenerates_key_when_flag_present(
+        self,
+    ):
         # target file: babybuddy/views.py | function: handle_api_regenerate_request | branch: regenerate requested
         request = DummyRequest(user=DummyUser(), post={"api_key_regenerate": "1"})
         with patch.object(babybuddy_views.messages, "success") as success:
@@ -1730,20 +1972,28 @@ class TestViewsModule:
         view = babybuddy_views.UserSettings()
         user_form = object()
         settings_form = object()
-        with patch.object(view, "form_user_class", return_value=user_form) as user_form_cls, patch.object(
+        with patch.object(
+            view, "form_user_class", return_value=user_form
+        ) as user_form_cls, patch.object(
             view, "form_settings_class", return_value=settings_form
-        ) as settings_form_cls, patch.object(babybuddy_views, "render", return_value="rendered") as render:
+        ) as settings_form_cls, patch.object(
+            babybuddy_views, "render", return_value="rendered"
+        ) as render:
             response = view.get(request)
         assert response == "rendered"
         user_form_cls.assert_called_once_with(instance=request.user)
         settings_form_cls.assert_called_once_with(instance=request.user.settings)
         render.assert_called_once()
 
-    def test_user_settings_post_redirects_immediately_when_api_key_request_detected(self):
+    def test_user_settings_post_redirects_immediately_when_api_key_request_detected(
+        self,
+    ):
         # target file: babybuddy/views.py | function: UserSettings.post | branch: api key regenerate short-circuit
         request = DummyRequest(user=DummyUser())
         view = babybuddy_views.UserSettings()
-        with patch.object(babybuddy_views, "handle_api_regenerate_request", return_value=True) as handle, patch.object(
+        with patch.object(
+            babybuddy_views, "handle_api_regenerate_request", return_value=True
+        ) as handle, patch.object(
             babybuddy_views, "redirect", return_value="redirected"
         ) as redirect:
             response = view.post(request)
@@ -1751,7 +2001,9 @@ class TestViewsModule:
         handle.assert_called_once_with(request)
         redirect.assert_called_once_with("babybuddy:user-settings")
 
-    def test_user_settings_post_valid_forms_save_models_activate_language_and_delegate_to_set_language(self):
+    def test_user_settings_post_valid_forms_save_models_activate_language_and_delegate_to_set_language(
+        self,
+    ):
         # target file: babybuddy/views.py | function: UserSettings.post | branch: both forms valid
         request = DummyRequest(user=DummyUser(language="en"), post={"x": "1"})
         stable_settings = request.user.settings
@@ -1763,13 +2015,21 @@ class TestViewsModule:
         user_form = DummyForm(is_valid_value=True, instance=request.user)
         settings_form = DummyForm(is_valid_value=True, instance=stable_settings)
 
-        with patch.object(babybuddy_views, "handle_api_regenerate_request", return_value=False), \
-             patch.object(view, "form_user_class", return_value=user_form) as user_form_cls, \
-             patch.object(view, "form_settings_class", return_value=settings_form) as settings_form_cls, \
-             patch.object(babybuddy_views.translation, "activate") as activate, \
-             patch.object(babybuddy_views.translation, "deactivate") as deactivate, \
-             patch.object(babybuddy_views.messages, "success") as success, \
-             patch.object(babybuddy_views, "set_language", return_value="language-response") as set_language:
+        with patch.object(
+            babybuddy_views, "handle_api_regenerate_request", return_value=False
+        ), patch.object(
+            view, "form_user_class", return_value=user_form
+        ) as user_form_cls, patch.object(
+            view, "form_settings_class", return_value=settings_form
+        ) as settings_form_cls, patch.object(
+            babybuddy_views.translation, "activate"
+        ) as activate, patch.object(
+            babybuddy_views.translation, "deactivate"
+        ) as deactivate, patch.object(
+            babybuddy_views.messages, "success"
+        ) as success, patch.object(
+            babybuddy_views, "set_language", return_value="language-response"
+        ) as set_language:
 
             response = view.post(request)
 
@@ -1804,12 +2064,17 @@ class TestViewsModule:
         user_form = DummyForm(is_valid_value=True, instance=request.user)
         settings_form = DummyForm(is_valid_value=False, instance=stable_settings)
 
-        with patch.object(babybuddy_views, "handle_api_regenerate_request", return_value=False), \
-             patch.object(view, "form_user_class", return_value=user_form), \
-             patch.object(view, "form_settings_class", return_value=settings_form), \
-             patch.object(babybuddy_views, "render", return_value="rendered") as render, \
-             patch.object(babybuddy_views.translation, "activate") as activate, \
-             patch.object(babybuddy_views.messages, "success") as success:
+        with patch.object(
+            babybuddy_views, "handle_api_regenerate_request", return_value=False
+        ), patch.object(view, "form_user_class", return_value=user_form), patch.object(
+            view, "form_settings_class", return_value=settings_form
+        ), patch.object(
+            babybuddy_views, "render", return_value="rendered"
+        ) as render, patch.object(
+            babybuddy_views.translation, "activate"
+        ) as activate, patch.object(
+            babybuddy_views.messages, "success"
+        ) as success:
 
             response = view.post(request)
 
@@ -1827,10 +2092,13 @@ class TestViewsModule:
         user_form = DummyForm(is_valid_value=True, instance=request.user)
         settings_form = DummyForm(is_valid_value=False, instance=stable_settings)
 
-        with patch.object(babybuddy_views, "handle_api_regenerate_request", return_value=False), \
-             patch.object(view, "form_user_class", return_value=user_form), \
-             patch.object(view, "form_settings_class", return_value=settings_form), \
-             patch.object(babybuddy_views, "render", return_value="rendered"):
+        with patch.object(
+            babybuddy_views, "handle_api_regenerate_request", return_value=False
+        ), patch.object(view, "form_user_class", return_value=user_form), patch.object(
+            view, "form_settings_class", return_value=settings_form
+        ), patch.object(
+            babybuddy_views, "render", return_value="rendered"
+        ):
             response = view.post(request)
 
         assert response == "rendered"
@@ -1838,7 +2106,9 @@ class TestViewsModule:
         assert user_form.save_calls == []
         assert settings_form.save_calls == []
 
-    def test_user_add_device_get_without_ingress_uses_empty_session_cookie_payload(self):
+    def test_user_add_device_get_without_ingress_uses_empty_session_cookie_payload(
+        self,
+    ):
         # target file: babybuddy/views.py | function: UserAddDevice.get | branch: non-ingress request
         request = DummyRequest(user=DummyUser())
         request.is_homeassistant_ingress_request = False
@@ -1846,8 +2116,11 @@ class TestViewsModule:
         final_response = HttpResponse("ok")
         view = babybuddy_views.UserAddDevice()
 
-        with patch.object(view, "form_user_class", return_value=Mock()) as user_form_cls, \
-             patch.object(babybuddy_views, "render", side_effect=[qr_response, final_response]) as render:
+        with patch.object(
+            view, "form_user_class", return_value=Mock()
+        ) as user_form_cls, patch.object(
+            babybuddy_views, "render", side_effect=[qr_response, final_response]
+        ) as render:
             response = view.get(request)
 
         assert response is final_response
@@ -1860,14 +2133,19 @@ class TestViewsModule:
 
     def test_user_add_device_get_with_ingress_includes_ingress_session_cookie(self):
         # target file: babybuddy/views.py | function: UserAddDevice.get | branch: ingress request includes cookie in QR payload
-        request = DummyRequest(user=DummyUser(), cookies={"ingress_session": "cookie123"})
+        request = DummyRequest(
+            user=DummyUser(), cookies={"ingress_session": "cookie123"}
+        )
         request.is_homeassistant_ingress_request = True
-        qr_response = HttpResponse(b'{"session_cookies": {"ingress_session": "cookie123"}}')
+        qr_response = HttpResponse(
+            b'{"session_cookies": {"ingress_session": "cookie123"}}'
+        )
         final_response = HttpResponse("ok")
         view = babybuddy_views.UserAddDevice()
 
-        with patch.object(view, "form_user_class", return_value=Mock()), \
-             patch.object(babybuddy_views, "render", side_effect=[qr_response, final_response]) as render:
+        with patch.object(view, "form_user_class", return_value=Mock()), patch.object(
+            babybuddy_views, "render", side_effect=[qr_response, final_response]
+        ) as render:
             response = view.get(request)
 
         assert response is final_response
@@ -1878,7 +2156,9 @@ class TestViewsModule:
         # target file: babybuddy/views.py | function: UserAddDevice.post | branch: regenerate redirect
         request = DummyRequest(user=DummyUser())
         view = babybuddy_views.UserAddDevice()
-        with patch.object(babybuddy_views, "handle_api_regenerate_request", return_value=True), patch.object(
+        with patch.object(
+            babybuddy_views, "handle_api_regenerate_request", return_value=True
+        ), patch.object(
             babybuddy_views, "redirect", return_value="redirected"
         ) as redirect:
             response = view.post(request)
@@ -1889,29 +2169,41 @@ class TestViewsModule:
         # target file: babybuddy/views.py | function: UserAddDevice.post | branch: unsupported POST rejected
         request = DummyRequest(user=DummyUser())
         view = babybuddy_views.UserAddDevice()
-        with patch.object(babybuddy_views, "handle_api_regenerate_request", return_value=False):
+        with patch.object(
+            babybuddy_views, "handle_api_regenerate_request", return_value=False
+        ):
             with pytest.raises(babybuddy_views.BadRequest):
                 view.post(request)
 
     ## Fix#1 - add more test
-    def test_csrf_failure_uses_default_handler_when_http_origin_present_but_reason_does_not_match(self):
+    def test_csrf_failure_uses_default_handler_when_http_origin_present_but_reason_does_not_match(
+        self,
+    ):
         # Kills the mutant that drops "and reason == REASON_BAD_ORIGIN % ..." from the condition,
         # which would incorrectly serve the custom template whenever HTTP_ORIGIN is present.
         request = DummyRequest()
         request.META["HTTP_ORIGIN"] = "https://trusted.example"
         # reason does NOT match REASON_BAD_ORIGIN % origin
-        with patch.object(babybuddy_views.csrf, "csrf_failure", return_value="fallback") as fallback:
+        with patch.object(
+            babybuddy_views.csrf, "csrf_failure", return_value="fallback"
+        ) as fallback:
             result = babybuddy_views.csrf_failure(request, "some unrelated reason")
         assert result == "fallback"
-        fallback.assert_called_once_with(request, "some unrelated reason", "403_csrf.html")
+        fallback.assert_called_once_with(
+            request, "some unrelated reason", "403_csrf.html"
+        )
 
     ## Fix#1 - add more test
-    def test_csrf_failure_uses_default_handler_when_http_origin_absent_regardless_of_reason(self):
+    def test_csrf_failure_uses_default_handler_when_http_origin_absent_regardless_of_reason(
+        self,
+    ):
         # Kills mutant that drops the "'HTTP_ORIGIN' in request.META" check entirely.
         request = DummyRequest()
         # No HTTP_ORIGIN key in META at all
         bad_reason = babybuddy_views.REASON_BAD_ORIGIN % "https://evil.example"
-        with patch.object(babybuddy_views.csrf, "csrf_failure", return_value="fallback") as fallback:
+        with patch.object(
+            babybuddy_views.csrf, "csrf_failure", return_value="fallback"
+        ) as fallback:
             result = babybuddy_views.csrf_failure(request, bad_reason)
         assert result == "fallback"
 
@@ -1933,20 +2225,30 @@ class TestViewsModule:
         settings_form_mock.is_valid.return_value = True
         settings_form_mock.save.return_value = new_settings
 
-        with patch.object(babybuddy_views, "handle_api_regenerate_request", return_value=False), \
-             patch.object(view, "form_user_class", return_value=user_form_mock), \
-             patch.object(view, "form_settings_class", return_value=settings_form_mock), \
-             patch.object(babybuddy_views.translation, "activate"), \
-             patch.object(babybuddy_views.translation, "deactivate"), \
-             patch.object(babybuddy_views.messages, "success"), \
-             patch.object(babybuddy_views, "set_language", return_value="ok"):
+        with patch.object(
+            babybuddy_views, "handle_api_regenerate_request", return_value=False
+        ), patch.object(
+            view, "form_user_class", return_value=user_form_mock
+        ), patch.object(
+            view, "form_settings_class", return_value=settings_form_mock
+        ), patch.object(
+            babybuddy_views.translation, "activate"
+        ), patch.object(
+            babybuddy_views.translation, "deactivate"
+        ), patch.object(
+            babybuddy_views.messages, "success"
+        ), patch.object(
+            babybuddy_views, "set_language", return_value="ok"
+        ):
             view.post(request)
 
         # user.settings must be updated to the new settings object
         assert user.settings is new_settings
 
     ## Fix#1 - add more test
-    def test_user_settings_post_activates_language_from_updated_settings_not_original(self):
+    def test_user_settings_post_activates_language_from_updated_settings_not_original(
+        self,
+    ):
         # Kills a mutant that activates the language from the wrong (pre-update) settings object.
         # We give user original language "en" and new settings language "ja"; assert "ja" is activated.
         request = DummyRequest(user=DummyUser(language="en"), post={"x": "1"})
@@ -1968,13 +2270,21 @@ class TestViewsModule:
         def capture_activate(lang):
             activated.append(lang)
 
-        with patch.object(babybuddy_views, "handle_api_regenerate_request", return_value=False), \
-             patch.object(view, "form_user_class", return_value=user_form_mock), \
-             patch.object(view, "form_settings_class", return_value=settings_form_mock), \
-             patch.object(babybuddy_views.translation, "activate", side_effect=capture_activate), \
-             patch.object(babybuddy_views.translation, "deactivate"), \
-             patch.object(babybuddy_views.messages, "success"), \
-             patch.object(babybuddy_views, "set_language", return_value="ok"):
+        with patch.object(
+            babybuddy_views, "handle_api_regenerate_request", return_value=False
+        ), patch.object(
+            view, "form_user_class", return_value=user_form_mock
+        ), patch.object(
+            view, "form_settings_class", return_value=settings_form_mock
+        ), patch.object(
+            babybuddy_views.translation, "activate", side_effect=capture_activate
+        ), patch.object(
+            babybuddy_views.translation, "deactivate"
+        ), patch.object(
+            babybuddy_views.messages, "success"
+        ), patch.object(
+            babybuddy_views, "set_language", return_value="ok"
+        ):
             view.post(request)
 
         assert activated == ["ja"]
@@ -1989,7 +2299,9 @@ class TestViewsModule:
         captured = {}
         template = Mock()
         template.render.side_effect = lambda ctx: captured.update(ctx) or "rendered"
-        with patch.object(babybuddy_views.loader, "get_template", return_value=template):
+        with patch.object(
+            babybuddy_views.loader, "get_template", return_value=template
+        ):
             babybuddy_views.csrf_failure(request, reason)
         assert captured["title"] is not None
         assert captured["main"] is not None
@@ -2001,7 +2313,9 @@ class TestViewsModule:
         # Kills mutants that drop the reason== check from the condition.
         request = DummyRequest()
         request.META["HTTP_ORIGIN"] = "https://trusted.example"
-        with patch.object(babybuddy_views.csrf, "csrf_failure", return_value="fallback") as fallback:
+        with patch.object(
+            babybuddy_views.csrf, "csrf_failure", return_value="fallback"
+        ) as fallback:
             result = babybuddy_views.csrf_failure(request, "unrelated reason")
         assert result == "fallback"
         fallback.assert_called_once_with(request, "unrelated reason", "403_csrf.html")
@@ -2012,7 +2326,9 @@ class TestViewsModule:
         request = DummyRequest()
         # No HTTP_ORIGIN in META
         reason = babybuddy_views.REASON_BAD_ORIGIN % "https://x.example"
-        with patch.object(babybuddy_views.csrf, "csrf_failure", return_value="fallback") as fallback:
+        with patch.object(
+            babybuddy_views.csrf, "csrf_failure", return_value="fallback"
+        ) as fallback:
             result = babybuddy_views.csrf_failure(request, reason)
         assert result == "fallback"
 
@@ -2024,7 +2340,9 @@ class TestViewsModule:
         reason = babybuddy_views.REASON_BAD_ORIGIN % "https://evil.example"
         template = Mock()
         template.render.return_value = "rendered"
-        with patch.object(babybuddy_views.loader, "get_template", return_value=template):
+        with patch.object(
+            babybuddy_views.loader, "get_template", return_value=template
+        ):
             response = babybuddy_views.csrf_failure(request, reason)
         assert response.status_code == 403
 
@@ -2036,7 +2354,9 @@ class TestViewsModule:
         reason = babybuddy_views.REASON_BAD_ORIGIN % "https://evil.example"
         template = Mock()
         template.render.return_value = "rendered"
-        with patch.object(babybuddy_views.loader, "get_template", return_value=template) as gt:
+        with patch.object(
+            babybuddy_views.loader, "get_template", return_value=template
+        ) as gt:
             babybuddy_views.csrf_failure(request, reason)
         gt.assert_called_once_with("error/403_csrf_bad_origin.html")
 
@@ -2044,7 +2364,9 @@ class TestViewsModule:
     def test_csrf_fallback_uses_correct_template_name(self):
         # Kills mutants on the fallback template name "403_csrf.html".
         request = DummyRequest()
-        with patch.object(babybuddy_views.csrf, "csrf_failure", return_value="ok") as fallback:
+        with patch.object(
+            babybuddy_views.csrf, "csrf_failure", return_value="ok"
+        ) as fallback:
             babybuddy_views.csrf_failure(request, "other")
         assert fallback.call_args.args[2] == "403_csrf.html"
 
@@ -2053,8 +2375,12 @@ class TestViewsModule:
     def test_root_router_reverses_dashboard_url(self):
         # Kills mutants on the reverse() argument "dashboard:dashboard".
         router = babybuddy_views.RootRouter()
-        with patch.object(babybuddy_views, "reverse", return_value="/dash/") as rev, \
-             patch("django.views.generic.base.RedirectView.get_redirect_url", return_value="/dash/"):
+        with patch.object(
+            babybuddy_views, "reverse", return_value="/dash/"
+        ) as rev, patch(
+            "django.views.generic.base.RedirectView.get_redirect_url",
+            return_value="/dash/",
+        ):
             router.get_redirect_url()
         rev.assert_called_once_with("dashboard:dashboard")
 
@@ -2063,9 +2389,14 @@ class TestViewsModule:
         # Kills mutants on self.url assignment and super call order.
         router = babybuddy_views.RootRouter()
         order = []
-        with patch.object(babybuddy_views, "reverse", side_effect=lambda n: order.append("reverse") or "/dash/"), \
-             patch("django.views.generic.base.RedirectView.get_redirect_url",
-                   side_effect=lambda *a, **kw: order.append("super") or "/dash/"):
+        with patch.object(
+            babybuddy_views,
+            "reverse",
+            side_effect=lambda n: order.append("reverse") or "/dash/",
+        ), patch(
+            "django.views.generic.base.RedirectView.get_redirect_url",
+            side_effect=lambda *a, **kw: order.append("super") or "/dash/",
+        ):
             router.get_redirect_url()
         assert order == ["reverse", "super"]
         assert router.url == "/dash/"
@@ -2093,8 +2424,9 @@ class TestViewsModule:
         form = Mock()
         form.is_valid.return_value = False
         view = babybuddy_views.UserPassword()
-        with patch.object(babybuddy_views, "PasswordChangeForm", return_value=form) as form_cls, \
-             patch.object(babybuddy_views, "render", return_value="ok"):
+        with patch.object(
+            babybuddy_views, "PasswordChangeForm", return_value=form
+        ) as form_cls, patch.object(babybuddy_views, "render", return_value="ok"):
             view.post(request)
         form_cls.assert_called_once_with(request.user, request.POST)
 
@@ -2108,10 +2440,15 @@ class TestViewsModule:
         form.is_valid.return_value = True
         form.save.return_value = saved_user
         view = babybuddy_views.UserPassword()
-        with patch.object(babybuddy_views, "PasswordChangeForm", return_value=form), \
-             patch.object(babybuddy_views, "update_session_auth_hash") as usha, \
-             patch.object(babybuddy_views.messages, "success"), \
-             patch.object(babybuddy_views, "render", return_value="ok"):
+        with patch.object(
+            babybuddy_views, "PasswordChangeForm", return_value=form
+        ), patch.object(
+            babybuddy_views, "update_session_auth_hash"
+        ) as usha, patch.object(
+            babybuddy_views.messages, "success"
+        ), patch.object(
+            babybuddy_views, "render", return_value="ok"
+        ):
             view.post(request)
         usha.assert_called_once_with(request, saved_user)
 
@@ -2124,10 +2461,13 @@ class TestViewsModule:
         form.is_valid.return_value = True
         form.save.return_value = DummyUser()
         view = babybuddy_views.UserPassword()
-        with patch.object(babybuddy_views, "PasswordChangeForm", return_value=form), \
-             patch.object(babybuddy_views, "update_session_auth_hash"), \
-             patch.object(babybuddy_views.messages, "success") as success, \
-             patch.object(babybuddy_views, "render", return_value="ok"):
+        with patch.object(
+            babybuddy_views, "PasswordChangeForm", return_value=form
+        ), patch.object(babybuddy_views, "update_session_auth_hash"), patch.object(
+            babybuddy_views.messages, "success"
+        ) as success, patch.object(
+            babybuddy_views, "render", return_value="ok"
+        ):
             view.post(request)
         assert success.called
         msg = str(success.call_args.args[1])
@@ -2173,9 +2513,13 @@ class TestViewsModule:
         request = DummyRequest(user=DummyUser())
         view = babybuddy_views.UserSettings()
         user_form = object()
-        with patch.object(view, "form_user_class", return_value=user_form) as ufc, \
-             patch.object(view, "form_settings_class", return_value=object()), \
-             patch.object(babybuddy_views, "render", return_value="ok"):
+        with patch.object(
+            view, "form_user_class", return_value=user_form
+        ) as ufc, patch.object(
+            view, "form_settings_class", return_value=object()
+        ), patch.object(
+            babybuddy_views, "render", return_value="ok"
+        ):
             view.get(request)
         ufc.assert_called_once_with(instance=request.user)
 
@@ -2184,23 +2528,29 @@ class TestViewsModule:
         # Kills mutmut_5/_6: form_settings_class must receive instance=request.user.settings.
         request = DummyRequest(user=DummyUser())
         view = babybuddy_views.UserSettings()
-        with patch.object(view, "form_user_class", return_value=object()), \
-             patch.object(view, "form_settings_class", return_value=object()) as sfc, \
-             patch.object(babybuddy_views, "render", return_value="ok"):
+        with patch.object(view, "form_user_class", return_value=object()), patch.object(
+            view, "form_settings_class", return_value=object()
+        ) as sfc, patch.object(babybuddy_views, "render", return_value="ok"):
             view.get(request)
         sfc.assert_called_once_with(instance=request.user.settings)
 
     ## Fix#1 - add more test
-    def test_user_settings_get_render_context_has_form_user_and_form_settings_keys(self):
+    def test_user_settings_get_render_context_has_form_user_and_form_settings_keys(
+        self,
+    ):
         # Kills mutmut_8/_9/_11/_12: the context dict must use exactly
         # "form_user" and "form_settings" as keys.
         request = DummyRequest(user=DummyUser())
         view = babybuddy_views.UserSettings()
         sentinel_user_form = object()
         sentinel_settings_form = object()
-        with patch.object(view, "form_user_class", return_value=sentinel_user_form), \
-             patch.object(view, "form_settings_class", return_value=sentinel_settings_form), \
-             patch.object(babybuddy_views, "render", return_value="ok") as render:
+        with patch.object(
+            view, "form_user_class", return_value=sentinel_user_form
+        ), patch.object(
+            view, "form_settings_class", return_value=sentinel_settings_form
+        ), patch.object(
+            babybuddy_views, "render", return_value="ok"
+        ) as render:
             view.get(request)
         _, _, ctx = render.call_args.args
         assert ctx["form_user"] is sentinel_user_form
@@ -2219,13 +2569,19 @@ class TestViewsModule:
         settings_form.is_valid.return_value = True
         settings_form.save.return_value = new_settings
         view = babybuddy_views.UserSettings()
-        with patch.object(babybuddy_views, "handle_api_regenerate_request", return_value=False), \
-             patch.object(view, "form_user_class", return_value=user_form), \
-             patch.object(view, "form_settings_class", return_value=settings_form), \
-             patch.object(babybuddy_views.translation, "activate"), \
-             patch.object(babybuddy_views.translation, "deactivate"), \
-             patch.object(babybuddy_views.messages, "success"), \
-             patch.object(babybuddy_views, "set_language", return_value="ok"):
+        with patch.object(
+            babybuddy_views, "handle_api_regenerate_request", return_value=False
+        ), patch.object(view, "form_user_class", return_value=user_form), patch.object(
+            view, "form_settings_class", return_value=settings_form
+        ), patch.object(
+            babybuddy_views.translation, "activate"
+        ), patch.object(
+            babybuddy_views.translation, "deactivate"
+        ), patch.object(
+            babybuddy_views.messages, "success"
+        ), patch.object(
+            babybuddy_views, "set_language", return_value="ok"
+        ):
             view.post(request)
         user_form.save.assert_called_once_with(commit=False)
         settings_form.save.assert_called_once_with(commit=False)
@@ -2242,13 +2598,19 @@ class TestViewsModule:
         settings_form.is_valid.return_value = True
         settings_form.save.return_value = new_settings
         view = babybuddy_views.UserSettings()
-        with patch.object(babybuddy_views, "handle_api_regenerate_request", return_value=False), \
-             patch.object(view, "form_user_class", return_value=user_form), \
-             patch.object(view, "form_settings_class", return_value=settings_form), \
-             patch.object(babybuddy_views.translation, "activate"), \
-             patch.object(babybuddy_views.translation, "deactivate"), \
-             patch.object(babybuddy_views.messages, "success"), \
-             patch.object(babybuddy_views, "set_language", return_value="ok"):
+        with patch.object(
+            babybuddy_views, "handle_api_regenerate_request", return_value=False
+        ), patch.object(view, "form_user_class", return_value=user_form), patch.object(
+            view, "form_settings_class", return_value=settings_form
+        ), patch.object(
+            babybuddy_views.translation, "activate"
+        ), patch.object(
+            babybuddy_views.translation, "deactivate"
+        ), patch.object(
+            babybuddy_views.messages, "success"
+        ), patch.object(
+            babybuddy_views, "set_language", return_value="ok"
+        ):
             view.post(request)
         assert request.user.save_calls == 1
 
@@ -2265,13 +2627,19 @@ class TestViewsModule:
         settings_form.is_valid.return_value = True
         settings_form.save.return_value = new_settings
         view = babybuddy_views.UserSettings()
-        with patch.object(babybuddy_views, "handle_api_regenerate_request", return_value=False), \
-             patch.object(view, "form_user_class", return_value=user_form), \
-             patch.object(view, "form_settings_class", return_value=settings_form), \
-             patch.object(babybuddy_views.translation, "activate"), \
-             patch.object(babybuddy_views.translation, "deactivate"), \
-             patch.object(babybuddy_views.messages, "success"), \
-             patch.object(babybuddy_views, "set_language", return_value="ok"):
+        with patch.object(
+            babybuddy_views, "handle_api_regenerate_request", return_value=False
+        ), patch.object(view, "form_user_class", return_value=user_form), patch.object(
+            view, "form_settings_class", return_value=settings_form
+        ), patch.object(
+            babybuddy_views.translation, "activate"
+        ), patch.object(
+            babybuddy_views.translation, "deactivate"
+        ), patch.object(
+            babybuddy_views.messages, "success"
+        ), patch.object(
+            babybuddy_views, "set_language", return_value="ok"
+        ):
             view.post(request)
         assert user.settings is new_settings
 
@@ -2290,13 +2658,19 @@ class TestViewsModule:
         settings_form.save.return_value = new_settings
         activated = []
         view = babybuddy_views.UserSettings()
-        with patch.object(babybuddy_views, "handle_api_regenerate_request", return_value=False), \
-             patch.object(view, "form_user_class", return_value=user_form), \
-             patch.object(view, "form_settings_class", return_value=settings_form), \
-             patch.object(babybuddy_views.translation, "activate", side_effect=activated.append), \
-             patch.object(babybuddy_views.translation, "deactivate"), \
-             patch.object(babybuddy_views.messages, "success"), \
-             patch.object(babybuddy_views, "set_language", return_value="ok"):
+        with patch.object(
+            babybuddy_views, "handle_api_regenerate_request", return_value=False
+        ), patch.object(view, "form_user_class", return_value=user_form), patch.object(
+            view, "form_settings_class", return_value=settings_form
+        ), patch.object(
+            babybuddy_views.translation, "activate", side_effect=activated.append
+        ), patch.object(
+            babybuddy_views.translation, "deactivate"
+        ), patch.object(
+            babybuddy_views.messages, "success"
+        ), patch.object(
+            babybuddy_views, "set_language", return_value="ok"
+        ):
             view.post(request)
         assert activated == ["ja"]
 
@@ -2313,19 +2687,27 @@ class TestViewsModule:
         settings_form.is_valid.return_value = True
         settings_form.save.return_value = new_settings
         view = babybuddy_views.UserSettings()
-        with patch.object(babybuddy_views, "handle_api_regenerate_request", return_value=False), \
-             patch.object(view, "form_user_class", return_value=user_form), \
-             patch.object(view, "form_settings_class", return_value=settings_form), \
-             patch.object(babybuddy_views.translation, "activate"), \
-             patch.object(babybuddy_views.translation, "deactivate"), \
-             patch.object(babybuddy_views.messages, "success"), \
-             patch.object(babybuddy_views, "set_language", return_value="lang-response") as sl:
+        with patch.object(
+            babybuddy_views, "handle_api_regenerate_request", return_value=False
+        ), patch.object(view, "form_user_class", return_value=user_form), patch.object(
+            view, "form_settings_class", return_value=settings_form
+        ), patch.object(
+            babybuddy_views.translation, "activate"
+        ), patch.object(
+            babybuddy_views.translation, "deactivate"
+        ), patch.object(
+            babybuddy_views.messages, "success"
+        ), patch.object(
+            babybuddy_views, "set_language", return_value="lang-response"
+        ) as sl:
             response = view.post(request)
         sl.assert_called_once_with(request)
         assert response == "lang-response"
 
     ## Fix#1 - add more test
-    def test_user_settings_post_invalid_renders_with_user_form_and_settings_form_keys(self):
+    def test_user_settings_post_invalid_renders_with_user_form_and_settings_form_keys(
+        self,
+    ):
         # Kills mutmut_37/_38/_39/_40/_41/_42: invalid path renders with
         # exactly "user_form" and "settings_form" context keys.
         request = DummyRequest(user=DummyUser(), post={})
@@ -2334,10 +2716,13 @@ class TestViewsModule:
         settings_form = Mock()
         settings_form.is_valid.return_value = False
         view = babybuddy_views.UserSettings()
-        with patch.object(babybuddy_views, "handle_api_regenerate_request", return_value=False), \
-             patch.object(view, "form_user_class", return_value=user_form), \
-             patch.object(view, "form_settings_class", return_value=settings_form), \
-             patch.object(babybuddy_views, "render", return_value="rendered") as render:
+        with patch.object(
+            babybuddy_views, "handle_api_regenerate_request", return_value=False
+        ), patch.object(view, "form_user_class", return_value=user_form), patch.object(
+            view, "form_settings_class", return_value=settings_form
+        ), patch.object(
+            babybuddy_views, "render", return_value="rendered"
+        ) as render:
             view.post(request)
         _, _, ctx = render.call_args.args
         assert ctx["user_form"] is user_form
@@ -2352,8 +2737,9 @@ class TestViewsModule:
         view = babybuddy_views.UserAddDevice()
         qr_resp = HttpResponse(b"{}", content_type="text/plain")
         final_resp = HttpResponse("ok")
-        with patch.object(babybuddy_views, "render", side_effect=[qr_resp, final_resp]) as render, \
-             patch.object(view, "form_user_class", return_value=Mock()):
+        with patch.object(
+            babybuddy_views, "render", side_effect=[qr_resp, final_resp]
+        ) as render, patch.object(view, "form_user_class", return_value=Mock()):
             view.get(request)
         assert render.call_args_list[0].args[1] == view.qr_code_template
 
@@ -2364,11 +2750,13 @@ class TestViewsModule:
         request.is_homeassistant_ingress_request = False
         view = babybuddy_views.UserAddDevice()
         import json
+
         qr_content = json.dumps({}).encode()
         qr_resp = HttpResponse(qr_content, content_type="text/plain")
         final_resp = HttpResponse("ok")
-        with patch.object(babybuddy_views, "render", side_effect=[qr_resp, final_resp]) as render, \
-             patch.object(view, "form_user_class", return_value=Mock()):
+        with patch.object(
+            babybuddy_views, "render", side_effect=[qr_resp, final_resp]
+        ) as render, patch.object(view, "form_user_class", return_value=Mock()):
             view.get(request)
         second_ctx = render.call_args_list[1].args[2]
         assert second_ctx["qr_code_data"] == "{}"
@@ -2381,8 +2769,9 @@ class TestViewsModule:
         view = babybuddy_views.UserAddDevice()
         qr_resp = HttpResponse(b"{}", content_type="text/plain")
         final_resp = HttpResponse("ok")
-        with patch.object(babybuddy_views, "render", side_effect=[qr_resp, final_resp]) as render, \
-             patch.object(view, "form_user_class", return_value=Mock()):
+        with patch.object(
+            babybuddy_views, "render", side_effect=[qr_resp, final_resp]
+        ) as render, patch.object(view, "form_user_class", return_value=Mock()):
             view.get(request)
         assert render.call_args_list[1].args[1] == view.template_name
 
@@ -2394,8 +2783,9 @@ class TestViewsModule:
         view = babybuddy_views.UserAddDevice()
         qr_resp = HttpResponse(b"{}", content_type="text/plain")
         final_resp = HttpResponse("ok")
-        with patch.object(babybuddy_views, "render", side_effect=[qr_resp, final_resp]), \
-             patch.object(view, "form_user_class", return_value=Mock()) as ufc:
+        with patch.object(
+            babybuddy_views, "render", side_effect=[qr_resp, final_resp]
+        ), patch.object(view, "form_user_class", return_value=Mock()) as ufc:
             view.get(request)
         ufc.assert_called_once_with(instance=request.user)
 
@@ -2405,8 +2795,11 @@ class TestViewsModule:
         # Kills post mutmut_1: redirect must go to "babybuddy:user-add-device".
         request = DummyRequest(user=DummyUser())
         view = babybuddy_views.UserAddDevice()
-        with patch.object(babybuddy_views, "handle_api_regenerate_request", return_value=True), \
-             patch.object(babybuddy_views, "redirect", return_value="redirected") as redir:
+        with patch.object(
+            babybuddy_views, "handle_api_regenerate_request", return_value=True
+        ), patch.object(
+            babybuddy_views, "redirect", return_value="redirected"
+        ) as redir:
             view.post(request)
         redir.assert_called_once_with("babybuddy:user-add-device")
 
@@ -2419,7 +2812,9 @@ class TestViewsModule:
         reason = babybuddy_views.REASON_BAD_ORIGIN % "https://evil.example"
         template = Mock()
         template.render.return_value = "RENDERED_BODY"
-        with patch.object(babybuddy_views.loader, "get_template", return_value=template):
+        with patch.object(
+            babybuddy_views.loader, "get_template", return_value=template
+        ):
             response = babybuddy_views.csrf_failure(request, reason)
         assert response.content == b"RENDERED_BODY"
 
@@ -2431,7 +2826,9 @@ class TestViewsModule:
         reason = babybuddy_views.REASON_BAD_ORIGIN % "https://evil.example"
         template = Mock()
         template.render.return_value = "body"
-        with patch.object(babybuddy_views.loader, "get_template", return_value=template):
+        with patch.object(
+            babybuddy_views.loader, "get_template", return_value=template
+        ):
             response = babybuddy_views.csrf_failure(request, reason)
         assert "text/html" in response["Content-Type"]
 
@@ -2444,7 +2841,9 @@ class TestViewsModule:
         captured = {}
         template = Mock()
         template.render.side_effect = lambda ctx: captured.update(ctx) or "ok"
-        with patch.object(babybuddy_views.loader, "get_template", return_value=template):
+        with patch.object(
+            babybuddy_views.loader, "get_template", return_value=template
+        ):
             babybuddy_views.csrf_failure(request, reason)
         assert captured["origin"] == "https://specific-origin.example"
 
@@ -2457,7 +2856,9 @@ class TestViewsModule:
         captured = {}
         template = Mock()
         template.render.side_effect = lambda ctx: captured.update(ctx) or "ok"
-        with patch.object(babybuddy_views.loader, "get_template", return_value=template):
+        with patch.object(
+            babybuddy_views.loader, "get_template", return_value=template
+        ):
             babybuddy_views.csrf_failure(request, reason)
         assert captured["reason"] == reason
 
@@ -2465,7 +2866,9 @@ class TestViewsModule:
     def test_csrf_failure_fallback_passes_request_as_first_arg(self):
         # mutmut_38/_39: csrf.csrf_failure(request, reason, template) arg order
         request = DummyRequest()
-        with patch.object(babybuddy_views.csrf, "csrf_failure", return_value="ok") as fallback:
+        with patch.object(
+            babybuddy_views.csrf, "csrf_failure", return_value="ok"
+        ) as fallback:
             babybuddy_views.csrf_failure(request, "other reason")
         assert fallback.call_args.args[0] is request
         assert fallback.call_args.args[1] == "other reason"
@@ -2478,13 +2881,16 @@ class TestViewsModule:
         # The "self" is explicitly passed as first positional arg.
         router = babybuddy_views.RootRouter()
         received = {}
+
         def fake_super(*args, **kwargs):
             received["args"] = args
             received["kwargs"] = kwargs
             return "/dash/"
-        with patch.object(babybuddy_views, "reverse", return_value="/dash/"), \
-             patch("django.views.generic.base.RedirectView.get_redirect_url",
-                   side_effect=fake_super):
+
+        with patch.object(babybuddy_views, "reverse", return_value="/dash/"), patch(
+            "django.views.generic.base.RedirectView.get_redirect_url",
+            side_effect=fake_super,
+        ):
             router.get_redirect_url(1, 2, key="val")
         # self is passed as first positional arg to super
         assert received["args"][0] is router
@@ -2509,8 +2915,9 @@ class TestViewsModule:
         form = Mock()
         form.is_valid.return_value = False
         view = babybuddy_views.UserPassword()
-        with patch.object(babybuddy_views, "PasswordChangeForm", return_value=form), \
-             patch.object(babybuddy_views, "render", return_value="ok") as render:
+        with patch.object(
+            babybuddy_views, "PasswordChangeForm", return_value=form
+        ), patch.object(babybuddy_views, "render", return_value="ok") as render:
             view.post(request)
         assert render.call_args.args[1] == view.template_name
 
@@ -2522,10 +2929,13 @@ class TestViewsModule:
         form.is_valid.return_value = True
         form.save.return_value = DummyUser()
         view = babybuddy_views.UserPassword()
-        with patch.object(babybuddy_views, "PasswordChangeForm", return_value=form), \
-             patch.object(babybuddy_views, "update_session_auth_hash"), \
-             patch.object(babybuddy_views.messages, "success") as success, \
-             patch.object(babybuddy_views, "render", return_value="ok"):
+        with patch.object(
+            babybuddy_views, "PasswordChangeForm", return_value=form
+        ), patch.object(babybuddy_views, "update_session_auth_hash"), patch.object(
+            babybuddy_views.messages, "success"
+        ) as success, patch.object(
+            babybuddy_views, "render", return_value="ok"
+        ):
             view.post(request)
         assert success.call_args.args[0] is request
 
@@ -2553,9 +2963,9 @@ class TestViewsModule:
         # mutmut_2/_3: template_name in render call
         request = DummyRequest(user=DummyUser())
         view = babybuddy_views.UserSettings()
-        with patch.object(view, "form_user_class", return_value=object()), \
-             patch.object(view, "form_settings_class", return_value=object()), \
-             patch.object(babybuddy_views, "render", return_value="ok") as render:
+        with patch.object(view, "form_user_class", return_value=object()), patch.object(
+            view, "form_settings_class", return_value=object()
+        ), patch.object(babybuddy_views, "render", return_value="ok") as render:
             view.get(request)
         assert render.call_args.args[1] == view.template_name
 
@@ -2569,10 +2979,15 @@ class TestViewsModule:
         user_form.is_valid.return_value = False
         settings_form = Mock()
         settings_form.is_valid.return_value = False
-        with patch.object(babybuddy_views, "handle_api_regenerate_request", return_value=False), \
-             patch.object(view, "form_user_class", return_value=user_form) as ufc, \
-             patch.object(view, "form_settings_class", return_value=settings_form), \
-             patch.object(babybuddy_views, "render", return_value="ok"):
+        with patch.object(
+            babybuddy_views, "handle_api_regenerate_request", return_value=False
+        ), patch.object(
+            view, "form_user_class", return_value=user_form
+        ) as ufc, patch.object(
+            view, "form_settings_class", return_value=settings_form
+        ), patch.object(
+            babybuddy_views, "render", return_value="ok"
+        ):
             view.post(request)
         assert ufc.call_args.kwargs["instance"] is request.user
         assert ufc.call_args.kwargs["data"] is request.POST
@@ -2586,10 +3001,13 @@ class TestViewsModule:
         user_form.is_valid.return_value = False
         settings_form = Mock()
         settings_form.is_valid.return_value = False
-        with patch.object(babybuddy_views, "handle_api_regenerate_request", return_value=False), \
-             patch.object(view, "form_user_class", return_value=user_form), \
-             patch.object(view, "form_settings_class", return_value=settings_form) as sfc, \
-             patch.object(babybuddy_views, "render", return_value="ok"):
+        with patch.object(
+            babybuddy_views, "handle_api_regenerate_request", return_value=False
+        ), patch.object(view, "form_user_class", return_value=user_form), patch.object(
+            view, "form_settings_class", return_value=settings_form
+        ) as sfc, patch.object(
+            babybuddy_views, "render", return_value="ok"
+        ):
             view.post(request)
         assert sfc.call_args.kwargs["instance"] is request.user.settings
         assert sfc.call_args.kwargs["data"] is request.POST
@@ -2606,13 +3024,19 @@ class TestViewsModule:
         settings_form.is_valid.return_value = True
         settings_form.save.return_value = new_settings
         view = babybuddy_views.UserSettings()
-        with patch.object(babybuddy_views, "handle_api_regenerate_request", return_value=False), \
-             patch.object(view, "form_user_class", return_value=user_form), \
-             patch.object(view, "form_settings_class", return_value=settings_form), \
-             patch.object(babybuddy_views.translation, "activate"), \
-             patch.object(babybuddy_views.translation, "deactivate"), \
-             patch.object(babybuddy_views.messages, "success") as success, \
-             patch.object(babybuddy_views, "set_language", return_value="ok"):
+        with patch.object(
+            babybuddy_views, "handle_api_regenerate_request", return_value=False
+        ), patch.object(view, "form_user_class", return_value=user_form), patch.object(
+            view, "form_settings_class", return_value=settings_form
+        ), patch.object(
+            babybuddy_views.translation, "activate"
+        ), patch.object(
+            babybuddy_views.translation, "deactivate"
+        ), patch.object(
+            babybuddy_views.messages, "success"
+        ) as success, patch.object(
+            babybuddy_views, "set_language", return_value="ok"
+        ):
             view.post(request)
         assert success.call_args.args[0] is request
 
@@ -2625,10 +3049,13 @@ class TestViewsModule:
         settings_form = Mock()
         settings_form.is_valid.return_value = False
         view = babybuddy_views.UserSettings()
-        with patch.object(babybuddy_views, "handle_api_regenerate_request", return_value=False), \
-             patch.object(view, "form_user_class", return_value=user_form), \
-             patch.object(view, "form_settings_class", return_value=settings_form), \
-             patch.object(babybuddy_views, "render", return_value="ok") as render:
+        with patch.object(
+            babybuddy_views, "handle_api_regenerate_request", return_value=False
+        ), patch.object(view, "form_user_class", return_value=user_form), patch.object(
+            view, "form_settings_class", return_value=settings_form
+        ), patch.object(
+            babybuddy_views, "render", return_value="ok"
+        ) as render:
             view.post(request)
         assert render.call_args.args[1] == view.template_name
 
@@ -2641,8 +3068,9 @@ class TestViewsModule:
         view = babybuddy_views.UserAddDevice()
         qr_resp = HttpResponse(b"{}", content_type="text/plain")
         final_resp = HttpResponse("ok")
-        with patch.object(babybuddy_views, "render", side_effect=[qr_resp, final_resp]) as render, \
-             patch.object(view, "form_user_class", return_value=Mock()):
+        with patch.object(
+            babybuddy_views, "render", side_effect=[qr_resp, final_resp]
+        ) as render, patch.object(view, "form_user_class", return_value=Mock()):
             view.get(request)
         assert render.call_args_list[0].args[0] is request
 
@@ -2654,8 +3082,9 @@ class TestViewsModule:
         view = babybuddy_views.UserAddDevice()
         qr_resp = HttpResponse(b"{}", content_type="text/plain")
         final_resp = HttpResponse("ok")
-        with patch.object(babybuddy_views, "render", side_effect=[qr_resp, final_resp]) as render, \
-             patch.object(view, "form_user_class", return_value=Mock()):
+        with patch.object(
+            babybuddy_views, "render", side_effect=[qr_resp, final_resp]
+        ) as render, patch.object(view, "form_user_class", return_value=Mock()):
             view.get(request)
         assert render.call_args_list[1].args[0] is request
 
@@ -2667,8 +3096,9 @@ class TestViewsModule:
         view = babybuddy_views.UserAddDevice()
         qr_resp = HttpResponse(b"{}", content_type="text/plain")
         final_resp = HttpResponse("ok")
-        with patch.object(babybuddy_views, "render", side_effect=[qr_resp, final_resp]) as render, \
-             patch.object(view, "form_user_class", return_value=Mock()):
+        with patch.object(
+            babybuddy_views, "render", side_effect=[qr_resp, final_resp]
+        ) as render, patch.object(view, "form_user_class", return_value=Mock()):
             view.get(request)
         first_ctx = render.call_args_list[0].args[2]
         assert "session_cookies" in first_ctx
@@ -2681,8 +3111,9 @@ class TestViewsModule:
         view = babybuddy_views.UserAddDevice()
         qr_resp = HttpResponse(b'{"x":1}', content_type="text/plain")
         final_resp = HttpResponse("ok")
-        with patch.object(babybuddy_views, "render", side_effect=[qr_resp, final_resp]) as render, \
-             patch.object(view, "form_user_class", return_value=Mock()):
+        with patch.object(
+            babybuddy_views, "render", side_effect=[qr_resp, final_resp]
+        ) as render, patch.object(view, "form_user_class", return_value=Mock()):
             view.get(request)
         second_ctx = render.call_args_list[1].args[2]
         assert "qr_code_data" in second_ctx
@@ -2697,16 +3128,26 @@ class TestSiteSettingsModule:
 
     def test_nap_start_max_time_value_uses_expected_field_class(self):
         # target file: babybuddy/site_settings.py | function: NapStartMaxTimeValue | behavior: field class binding
-        assert babybuddy_site_settings.NapStartMaxTimeValue.field is core.fields.NapStartMaxTimeField
+        assert (
+            babybuddy_site_settings.NapStartMaxTimeValue.field
+            is core.fields.NapStartMaxTimeField
+        )
 
     def test_nap_start_min_time_value_uses_expected_field_class(self):
         # target file: babybuddy/site_settings.py | function: NapStartMinTimeValue | behavior: field class binding
-        assert babybuddy_site_settings.NapStartMinTimeValue.field is core.fields.NapStartMinTimeField
+        assert (
+            babybuddy_site_settings.NapStartMinTimeValue.field
+            is core.fields.NapStartMinTimeField
+        )
 
     def test_nap_settings_widgets_use_time_input_for_both_settings(self):
         # target file: babybuddy/site_settings.py | function: NapSettings | behavior: both settings use TimeInput widget
-        nap_start_min_descriptor = babybuddy_site_settings.NapSettings.__dict__["nap_start_min"]
-        nap_start_max_descriptor = babybuddy_site_settings.NapSettings.__dict__["nap_start_max"]
+        nap_start_min_descriptor = babybuddy_site_settings.NapSettings.__dict__[
+            "nap_start_min"
+        ]
+        nap_start_max_descriptor = babybuddy_site_settings.NapSettings.__dict__[
+            "nap_start_max"
+        ]
 
         assert nap_start_min_descriptor.widget is babybuddy_site_settings.TimeInput
         assert nap_start_max_descriptor.widget is babybuddy_site_settings.TimeInput
@@ -2799,13 +3240,16 @@ class TestSiteSettingsModule:
         assert result == 0
         assert result != -1
 
+
 class TestAppsModule:
     """Targets: babybuddy/apps.py"""
+
     ## Fix#1 - New test class
     def test_create_read_only_group_calls_get_or_create_with_correct_name(self):
         # Kills all mutants on create_read_only_group: the group name argument
         # and the get_or_create call itself.
         from django.contrib.auth.models import Group
+
         with patch.object(Group.objects, "get_or_create") as get_or_create:
             babybuddy_apps.create_read_only_group(sender=object())
         get_or_create.assert_called_once_with(
@@ -2823,7 +3267,9 @@ class TestAppsModule:
         def fake_connect(handler, sender):
             connected.append((handler, sender))
 
-        with patch.object(babybuddy_apps.post_migrate, "connect", side_effect=fake_connect):
+        with patch.object(
+            babybuddy_apps.post_migrate, "connect", side_effect=fake_connect
+        ):
             babybuddy_apps.BabyBuddyConfig.ready(config)
 
         handlers = [h for h, s in connected]
@@ -2837,9 +3283,14 @@ class TestAppsModule:
     def test_set_default_site_settings_uses_env_nap_start_min_when_valid(self):
         # Kills mutants on the NAP_START_MIN env parsing path (valid format).
         from dbsettings.loading import set_setting_value, setting_in_db
-        with patch.dict(os.environ, {"NAP_START_MIN": "07:30", "NAP_START_MAX": "17:00"}), \
-             patch("babybuddy.apps.setting_in_db", return_value=False) as mock_in_db, \
-             patch("babybuddy.apps.set_setting_value") as mock_set:
+
+        with patch.dict(
+            os.environ, {"NAP_START_MIN": "07:30", "NAP_START_MAX": "17:00"}
+        ), patch(
+            "babybuddy.apps.setting_in_db", return_value=False
+        ) as mock_in_db, patch(
+            "babybuddy.apps.set_setting_value"
+        ) as mock_set:
             babybuddy_apps.set_default_site_settings(sender=object())
 
         # First default tuple is ("Sleep", "nap_start_min", time(7,30))
@@ -2852,16 +3303,20 @@ class TestAppsModule:
     ## Fix#1 - New test class
     def test_set_default_site_settings_falls_back_to_model_when_env_invalid(self):
         import core.models as core_models
+
         fake_settings = types.SimpleNamespace(
-            nap_start_min=datetime.time(6),
-            nap_start_max=datetime.time(18)
+            nap_start_min=datetime.time(6), nap_start_max=datetime.time(18)
         )
-        env_without_nap = {k: v for k, v in os.environ.items()
-                           if k not in ("NAP_START_MIN", "NAP_START_MAX")}
-        with patch.dict(os.environ, env_without_nap, clear=True), \
-             patch("babybuddy.apps.setting_in_db", return_value=False), \
-             patch("babybuddy.apps.set_setting_value") as mock_set, \
-             patch.object(core_models.Sleep, "settings", fake_settings, create=True):
+        env_without_nap = {
+            k: v
+            for k, v in os.environ.items()
+            if k not in ("NAP_START_MIN", "NAP_START_MAX")
+        }
+        with patch.dict(os.environ, env_without_nap, clear=True), patch(
+            "babybuddy.apps.setting_in_db", return_value=False
+        ), patch("babybuddy.apps.set_setting_value") as mock_set, patch.object(
+            core_models.Sleep, "settings", fake_settings, create=True
+        ):
             babybuddy_apps.set_default_site_settings(sender=object())
 
         calls = mock_set.call_args_list
@@ -2872,22 +3327,28 @@ class TestAppsModule:
 
     ## Fix#1 - New test class
     def test_set_default_site_settings_skips_already_set_values(self):
-        env_without_nap = {k: v for k, v in os.environ.items()
-                           if k not in ("NAP_START_MIN", "NAP_START_MAX")}
-        with patch.dict(os.environ, env_without_nap, clear=True), \
-             patch("babybuddy.apps.setting_in_db", return_value=True) as mock_in_db, \
-             patch("babybuddy.apps.set_setting_value") as mock_set:
+        env_without_nap = {
+            k: v
+            for k, v in os.environ.items()
+            if k not in ("NAP_START_MIN", "NAP_START_MAX")
+        }
+        with patch.dict(os.environ, env_without_nap, clear=True), patch(
+            "babybuddy.apps.setting_in_db", return_value=True
+        ) as mock_in_db, patch("babybuddy.apps.set_setting_value") as mock_set:
             babybuddy_apps.set_default_site_settings(sender=object())
         mock_set.assert_not_called()
 
     ## Fix#1 - New test class
     def test_set_default_site_settings_calls_set_with_correct_module_string(self):
         # Kills mutants on the "core.models" module string argument.
-        env_without_nap = {k: v for k, v in os.environ.items()
-                   if k not in ("NAP_START_MIN", "NAP_START_MAX")}
-        with patch.dict(os.environ, env_without_nap, clear=True), \
-             patch("babybuddy.apps.setting_in_db", return_value=False), \
-             patch("babybuddy.apps.set_setting_value") as mock_set:
+        env_without_nap = {
+            k: v
+            for k, v in os.environ.items()
+            if k not in ("NAP_START_MIN", "NAP_START_MAX")
+        }
+        with patch.dict(os.environ, env_without_nap, clear=True), patch(
+            "babybuddy.apps.setting_in_db", return_value=False
+        ), patch("babybuddy.apps.set_setting_value") as mock_set:
             babybuddy_apps.set_default_site_settings(sender=object())
 
         for c in mock_set.call_args_list:
@@ -2895,15 +3356,20 @@ class TestAppsModule:
 
     ## Fix#2
     def _env_without_nap(self):
-        return {k: v for k, v in os.environ.items()
-                if k not in ("NAP_START_MIN", "NAP_START_MAX")}
+        return {
+            k: v
+            for k, v in os.environ.items()
+            if k not in ("NAP_START_MIN", "NAP_START_MAX")
+        }
 
     ## Fix#2
     def test_set_default_site_settings_uses_env_nap_start_max_when_valid(self):
         # Kills mutants on "NAP_START_MAX" env key and the nap_start_max path
-        with patch.dict(os.environ, {"NAP_START_MIN": "06:00", "NAP_START_MAX": "17:00"}), \
-             patch("babybuddy.apps.setting_in_db", return_value=False), \
-             patch("babybuddy.apps.set_setting_value") as mock_set:
+        with patch.dict(
+            os.environ, {"NAP_START_MIN": "06:00", "NAP_START_MAX": "17:00"}
+        ), patch("babybuddy.apps.setting_in_db", return_value=False), patch(
+            "babybuddy.apps.set_setting_value"
+        ) as mock_set:
             babybuddy_apps.set_default_site_settings(sender=object())
         calls = mock_set.call_args_list
         assert any(
@@ -2915,9 +3381,11 @@ class TestAppsModule:
     def test_set_default_site_settings_format_string_parses_hh_mm(self):
         # Kills mutant on "%H:%M" format string — if mutated, time parse fails
         # and falls back to model default; we verify the parsed value is used.
-        with patch.dict(os.environ, {"NAP_START_MIN": "08:30", "NAP_START_MAX": "16:45"}), \
-             patch("babybuddy.apps.setting_in_db", return_value=False), \
-             patch("babybuddy.apps.set_setting_value") as mock_set:
+        with patch.dict(
+            os.environ, {"NAP_START_MIN": "08:30", "NAP_START_MAX": "16:45"}
+        ), patch("babybuddy.apps.setting_in_db", return_value=False), patch(
+            "babybuddy.apps.set_setting_value"
+        ) as mock_set:
             babybuddy_apps.set_default_site_settings(sender=object())
         calls = mock_set.call_args_list
         assert any(
@@ -2932,9 +3400,11 @@ class TestAppsModule:
     ## Fix#2
     def test_set_default_site_settings_nap_start_min_attribute_name_exact(self):
         # Kills mutants on "nap_start_min" attribute name string in defaults tuple
-        with patch.dict(os.environ, {"NAP_START_MIN": "07:00", "NAP_START_MAX": "18:00"}), \
-             patch("babybuddy.apps.setting_in_db", return_value=False), \
-             patch("babybuddy.apps.set_setting_value") as mock_set:
+        with patch.dict(
+            os.environ, {"NAP_START_MIN": "07:00", "NAP_START_MAX": "18:00"}
+        ), patch("babybuddy.apps.setting_in_db", return_value=False), patch(
+            "babybuddy.apps.set_setting_value"
+        ) as mock_set:
             babybuddy_apps.set_default_site_settings(sender=object())
         called_attribute_names = [c.args[2] for c in mock_set.call_args_list]
         assert "nap_start_min" in called_attribute_names
@@ -2942,9 +3412,11 @@ class TestAppsModule:
     ## Fix#2
     def test_set_default_site_settings_nap_start_max_attribute_name_exact(self):
         # Kills mutants on "nap_start_max" attribute name string in defaults tuple
-        with patch.dict(os.environ, {"NAP_START_MIN": "07:00", "NAP_START_MAX": "18:00"}), \
-             patch("babybuddy.apps.setting_in_db", return_value=False), \
-             patch("babybuddy.apps.set_setting_value") as mock_set:
+        with patch.dict(
+            os.environ, {"NAP_START_MIN": "07:00", "NAP_START_MAX": "18:00"}
+        ), patch("babybuddy.apps.setting_in_db", return_value=False), patch(
+            "babybuddy.apps.set_setting_value"
+        ) as mock_set:
             babybuddy_apps.set_default_site_settings(sender=object())
         called_attribute_names = [c.args[2] for c in mock_set.call_args_list]
         assert "nap_start_max" in called_attribute_names
@@ -2952,9 +3424,11 @@ class TestAppsModule:
     ## Fix#2
     def test_set_default_site_settings_sleep_class_name_exact(self):
         # Kills mutants on "Sleep" class name string in defaults tuple
-        with patch.dict(os.environ, {"NAP_START_MIN": "07:00", "NAP_START_MAX": "18:00"}), \
-             patch("babybuddy.apps.setting_in_db", return_value=False), \
-             patch("babybuddy.apps.set_setting_value") as mock_set:
+        with patch.dict(
+            os.environ, {"NAP_START_MIN": "07:00", "NAP_START_MAX": "18:00"}
+        ), patch("babybuddy.apps.setting_in_db", return_value=False), patch(
+            "babybuddy.apps.set_setting_value"
+        ) as mock_set:
             babybuddy_apps.set_default_site_settings(sender=object())
         called_class_names = [c.args[1] for c in mock_set.call_args_list]
         assert all(n == "Sleep" for n in called_class_names)
@@ -2963,18 +3437,22 @@ class TestAppsModule:
     def test_set_default_site_settings_value_error_in_strptime_triggers_fallback(self):
         # Kills mutants on ValueError in except tuple — invalid format raises ValueError
         import core.models as core_models
+
         fake_settings = types.SimpleNamespace(
-            nap_start_min=datetime.time(6),
-            nap_start_max=datetime.time(18)
+            nap_start_min=datetime.time(6), nap_start_max=datetime.time(18)
         )
-        env = {k: v for k, v in os.environ.items()
-               if k not in ("NAP_START_MIN", "NAP_START_MAX")}
+        env = {
+            k: v
+            for k, v in os.environ.items()
+            if k not in ("NAP_START_MIN", "NAP_START_MAX")
+        }
         env["NAP_START_MIN"] = "not-a-time"
         env["NAP_START_MAX"] = "also-invalid"
-        with patch.dict(os.environ, env, clear=True), \
-             patch("babybuddy.apps.setting_in_db", return_value=False), \
-             patch("babybuddy.apps.set_setting_value") as mock_set, \
-             patch.object(core_models.Sleep, "settings", fake_settings, create=True):
+        with patch.dict(os.environ, env, clear=True), patch(
+            "babybuddy.apps.setting_in_db", return_value=False
+        ), patch("babybuddy.apps.set_setting_value") as mock_set, patch.object(
+            core_models.Sleep, "settings", fake_settings, create=True
+        ):
             babybuddy_apps.set_default_site_settings(sender=object())
         calls = mock_set.call_args_list
         assert any(
@@ -2985,9 +3463,13 @@ class TestAppsModule:
     ## Fix#2
     def test_set_default_site_settings_setting_in_db_called_with_correct_args(self):
         # Kills mutants on setting_in_db("core.models", class_name, attribute_name)
-        with patch.dict(os.environ, {"NAP_START_MIN": "07:00", "NAP_START_MAX": "18:00"}), \
-             patch("babybuddy.apps.setting_in_db", return_value=False) as mock_in_db, \
-             patch("babybuddy.apps.set_setting_value"):
+        with patch.dict(
+            os.environ, {"NAP_START_MIN": "07:00", "NAP_START_MAX": "18:00"}
+        ), patch(
+            "babybuddy.apps.setting_in_db", return_value=False
+        ) as mock_in_db, patch(
+            "babybuddy.apps.set_setting_value"
+        ):
             babybuddy_apps.set_default_site_settings(sender=object())
         in_db_calls = mock_in_db.call_args_list
         assert call("core.models", "Sleep", "nap_start_min") in in_db_calls
@@ -2996,21 +3478,28 @@ class TestAppsModule:
     ## Fix#2
     def test_set_default_site_settings_set_value_called_twice_when_neither_in_db(self):
         # Kills mutants that drop one of the two set_setting_value calls
-        with patch.dict(os.environ, {"NAP_START_MIN": "07:00", "NAP_START_MAX": "18:00"}), \
-             patch("babybuddy.apps.setting_in_db", return_value=False), \
-             patch("babybuddy.apps.set_setting_value") as mock_set:
+        with patch.dict(
+            os.environ, {"NAP_START_MIN": "07:00", "NAP_START_MAX": "18:00"}
+        ), patch("babybuddy.apps.setting_in_db", return_value=False), patch(
+            "babybuddy.apps.set_setting_value"
+        ) as mock_set:
             babybuddy_apps.set_default_site_settings(sender=object())
         assert mock_set.call_count == 2
 
     ## Fix#2
-    def test_set_default_site_settings_set_value_called_once_when_one_already_in_db(self):
+    def test_set_default_site_settings_set_value_called_once_when_one_already_in_db(
+        self,
+    ):
         # Kills mutants on the loop / conditional logic
         in_db_results = [True, False]  # first already set, second not
-        with patch.dict(os.environ, {"NAP_START_MIN": "07:00", "NAP_START_MAX": "18:00"}), \
-             patch("babybuddy.apps.setting_in_db", side_effect=in_db_results), \
-             patch("babybuddy.apps.set_setting_value") as mock_set:
+        with patch.dict(
+            os.environ, {"NAP_START_MIN": "07:00", "NAP_START_MAX": "18:00"}
+        ), patch("babybuddy.apps.setting_in_db", side_effect=in_db_results), patch(
+            "babybuddy.apps.set_setting_value"
+        ) as mock_set:
             babybuddy_apps.set_default_site_settings(sender=object())
         assert mock_set.call_count == 1
+
 
 class TestSettingsModule:
 
@@ -3037,4 +3526,3 @@ class TestSettingsModule:
         with pytest.raises(ValueError) as exc:
             strtobool("garbage")
         assert "garbage" in str(exc.value)
-

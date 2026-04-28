@@ -237,7 +237,7 @@ class CustomErrorTemplateBlackBoxTests(TestCase):
         reason=(
             "Bug: Unknown URLs cause a TemplateSyntaxError in "
             "babybuddy/templates/error/404.html (the `blocktrans trimmed "
-            "with path=...|add\"</code>\"|safe` line is missing a colon "
+            'with path=...|add"</code>"|safe` line is missing a colon '
             "after the second `add` filter).  Because the 404 handler "
             "tries to render this broken template, the real HTTP status "
             "a visitor sees is a 500 instead of a 404."
@@ -268,3 +268,226 @@ class LocaleBlackBoxTests(TestCase):
         # Django's default set_language is POST-only; a GET shouldn't 500.
         resp = self.client.get("/user/lang/setlang/")
         self.assertIn(resp.status_code, (302, 405, 404))
+
+
+#####################################################################
+# Parametric blackbox expansions                                     #
+#                                                                    #
+# Author: Samson Cournane                                            #
+#                                                                    #
+# The class-based tests above prove a representative case for each   #
+# rule.  The pytest-style functions below use parametrize to drive   #
+# the same rules across whole equivalence classes: multiple invalid  #
+# credentials, multiple gated pages, multiple HTTP methods, etc.     #
+#####################################################################
+
+
+@pytest.fixture
+def regular_user(db):
+    User = get_user_model()
+    user = User.objects.create_user(username="pm_regular", password="Regular-Pwd-1!")
+    return user
+
+
+@pytest.fixture
+def staff_user(db):
+    User = get_user_model()
+    user = User.objects.create_user(
+        username="pm_staff",
+        password="Staff-Pwd-1!",
+        is_staff=True,
+        is_superuser=True,
+    )
+    return user
+
+
+# ---------------------------------------------------------------------------
+# A. Login form rejects a matrix of bad credentials with the same visible
+#    outcome (200 re-render, never a redirect or a 500).
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "username,password",
+    [
+        ("pm_regular", ""),  # empty password
+        ("", "Regular-Pwd-1!"),  # empty username
+        ("", ""),  # both empty
+        ("pm_regular", "wrong"),  # wrong password
+        ("ghost", "anything"),  # unknown user
+        ("PM_REGULAR", "Regular-Pwd-1!"),  # wrong case username
+        ("pm_regular", "Regular-Pwd-1! "),  # trailing space on pw
+        ("pm_regular", " Regular-Pwd-1!"),  # leading space on pw
+    ],
+)
+def test_login_rejects_bad_credentials(regular_user, username, password):
+    client = Client()
+    resp = client.post(
+        reverse("babybuddy:login"),
+        data={"username": username, "password": password},
+    )
+    # A failed login must re-render the form (200), never 302 redirect to
+    # the authenticated area and never 5xx.
+    assert resp.status_code == 200, (
+        f"login with {username!r}/{password!r} returned {resp.status_code}, "
+        "expected 200 form-rerender"
+    )
+
+
+# ---------------------------------------------------------------------------
+# B. Anonymous GET on login-gated pages redirects to login with a next= param.
+# ---------------------------------------------------------------------------
+
+
+GATED_PAGE_ROUTES = [
+    "babybuddy:user-settings",
+    "babybuddy:user-list",
+    "core:child-list",
+    "core:child-add",
+    "core:feeding-list",
+    "core:feeding-add",
+    "core:sleep-list",
+    "core:sleep-add",
+    "core:diaperchange-list",
+    "core:pumping-list",
+    "core:note-list",
+    "core:timer-list",
+]
+
+
+@pytest.mark.parametrize("route_name", GATED_PAGE_ROUTES)
+def test_anonymous_gated_page_redirects_to_login(db, route_name):
+    client = Client()
+    resp = client.get(reverse(route_name))
+    assert (
+        resp.status_code == 302
+    ), f"{route_name} should redirect for anon, got {resp.status_code}"
+    assert (
+        "login" in resp["Location"].lower()
+    ), f"{route_name} redirected to {resp['Location']!r}, expected a login URL"
+
+
+# ---------------------------------------------------------------------------
+# C. Every gated page renders 200 for a staff user.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("route_name", GATED_PAGE_ROUTES)
+def test_staff_can_render_gated_page(staff_user, route_name):
+    client = Client()
+    client.login(username="pm_staff", password="Staff-Pwd-1!")
+    resp = client.get(reverse(route_name))
+    # 200 if the page exists for this resource, or 302 onto a default child
+    # filter - both acceptable; the failure mode we are guarding against is
+    # a 403 or a 500.
+    assert resp.status_code in (
+        200,
+        302,
+    ), f"{route_name} responded {resp.status_code} for staff, expected 200/302"
+
+
+# ---------------------------------------------------------------------------
+# D. Non-staff user cannot reach admin surfaces.
+# ---------------------------------------------------------------------------
+
+
+STAFF_ONLY_ROUTES = [
+    "babybuddy:user-list",
+    "babybuddy:user-add",
+]
+
+
+@pytest.mark.parametrize("route_name", STAFF_ONLY_ROUTES)
+def test_non_staff_cannot_reach_staff_route(regular_user, route_name):
+    client = Client()
+    client.login(username="pm_regular", password="Regular-Pwd-1!")
+    resp = client.get(reverse(route_name))
+    # Non-staff must NOT see a rendered admin page.  Acceptable answers are
+    # redirect-to-login (302), Forbidden (403), or Not Found (404).
+    assert (
+        resp.status_code != 200
+    ), f"{route_name} rendered 200 for a non-staff user - permission leak"
+
+
+# ---------------------------------------------------------------------------
+# E. Logout flow - every acceptable method is 2xx/3xx, never 5xx.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("method", ["post", "get"])
+def test_logout_never_crashes(regular_user, method):
+    client = Client()
+    client.login(username="pm_regular", password="Regular-Pwd-1!")
+    resp = getattr(client, method)(reverse("babybuddy:logout"))
+    # Even on GET (which Django 5 rejects with 405), we must not 500.
+    assert (
+        resp.status_code < 500
+    ), f"{method.upper()} /logout/ produced {resp.status_code}"
+
+
+# ---------------------------------------------------------------------------
+# F. Password reset flow - GET on every page in the flow renders.
+# ---------------------------------------------------------------------------
+
+
+PASSWORD_RESET_ROUTES = [
+    "babybuddy:password_reset",
+    "babybuddy:password_reset_done",
+    "babybuddy:password_reset_complete",
+]
+
+
+@pytest.mark.parametrize("route_name", PASSWORD_RESET_ROUTES)
+def test_password_reset_stage_renders(db, route_name):
+    client = Client()
+    resp = client.get(reverse(route_name))
+    assert resp.status_code == 200, f"{route_name} returned {resp.status_code}"
+
+
+# ---------------------------------------------------------------------------
+# G. /api/profile - token variants.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "header_value",
+    [
+        "",  # empty
+        "Token",  # missing key
+        "Token invalidtoken",  # bad key
+        "Bearer something",  # wrong scheme
+    ],
+)
+def test_profile_rejects_bad_token(db, header_value):
+    client = Client()
+    resp = client.get(
+        reverse("api:profile"),
+        HTTP_AUTHORIZATION=header_value,
+    )
+    assert resp.status_code in (
+        401,
+        403,
+    ), f"bad auth {header_value!r} got {resp.status_code}"
+
+
+# ---------------------------------------------------------------------------
+# H. Reverse routing - every named URL must resolve without exception.
+# ---------------------------------------------------------------------------
+
+
+NAMED_ROUTES_WITHOUT_ARGS = [
+    "babybuddy:login",
+    "babybuddy:logout",
+    "babybuddy:password_reset",
+    "babybuddy:user-settings",
+    "babybuddy:user-list",
+    "api:profile",
+    "api:openapi-schema",
+]
+
+
+@pytest.mark.parametrize("route_name", NAMED_ROUTES_WITHOUT_ARGS)
+def test_named_route_reverse_resolves(route_name):
+    # Pure routing check: if the name is missing, reverse() raises.
+    url = reverse(route_name)
+    assert url.startswith("/"), f"reverse({route_name!r}) returned {url!r}"

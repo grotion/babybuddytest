@@ -16,7 +16,7 @@
 # ------------------------------------------------------------------------------------------------------------------------ #
 ############################################################################################################################
 
-'''
+"""
 core/models.py — 43 missing
 All require calling Django's ORM (super().save(), super().delete(), .filter(), .count()):
 
@@ -45,9 +45,9 @@ child_quick_switch — first line calls Child.objects.exclude(slug=...). No unit
 core/urls.py — counted here but shown as 4 missing in the image (the coverage report counts path() calls) — pure routing declarations, no executable logic.
 
 Summary: The 94% total coverage ceiling you're hitting is the natural limit for whitebox unit testing of this Django project. The remaining 6% (96 statements) all require either a real database connection or full Django HTTP request dispatch to execute — they are integration test territory, not unit test territory.
-'''
+"""
 
-'''
+"""
 🙁 261 Survived — Why They Cannot Be Killed
 These mutants were executed by tests but the tests did not detect the mutation. They fall into several categories:
 timeline.py — 86 survived
@@ -147,7 +147,7 @@ TagsEditor.get_context() (43): First line is models.Tag.objects.order_by("-last_
 forms.py — 18 mutants, impossible to unit test
 
 CoreModelForm.__init__() (18): Calls super(CoreModelForm, self).__init__(*args, **kwargs) — Django's ModelForm.__init__ requires a bound model with schema information, validated fields list, and widget construction that depends on the real model's Meta class. Cannot be called without a real model instance.
-'''
+"""
 
 import datetime
 from types import SimpleNamespace
@@ -241,8 +241,16 @@ class TestCoreUtilsModule:
     @pytest.mark.parametrize(
         ("duration", "precision", "expected"),
         [
-            (datetime.timedelta(hours=2, minutes=5, seconds=6), "s", "2 hours, 5 minutes, 6 seconds"),
-            (datetime.timedelta(hours=2, minutes=5, seconds=6), "m", "2 hours, 5 minutes"),
+            (
+                datetime.timedelta(hours=2, minutes=5, seconds=6),
+                "s",
+                "2 hours, 5 minutes, 6 seconds",
+            ),
+            (
+                datetime.timedelta(hours=2, minutes=5, seconds=6),
+                "m",
+                "2 hours, 5 minutes",
+            ),
             (datetime.timedelta(hours=2, minutes=5, seconds=6), "h", "2 hours"),
             (datetime.timedelta(minutes=0), "s", "0 minutes"),
         ],
@@ -278,7 +286,9 @@ class TestCoreUtilsModule:
         start = datetime.datetime(2026, 1, 1, 10, 0, tzinfo=eastern)
         end = datetime.datetime(2026, 1, 1, 16, 30, tzinfo=utc)
 
-        assert core_utils.timezone_aware_duration(start, end) == datetime.timedelta(hours=1, minutes=30)
+        assert core_utils.timezone_aware_duration(start, end) == datetime.timedelta(
+            hours=1, minutes=30
+        )
 
     ## Fix#1
     def test_duration_string_zero_hours_omits_hours(self):
@@ -434,7 +444,7 @@ class TestCoreUtilsModule:
         plus5 = datetime.timezone(datetime.timedelta(hours=5))
         utc = datetime.timezone.utc
         start = datetime.datetime(2026, 1, 1, 15, 0, tzinfo=plus5)  # = 10:00 UTC
-        end = datetime.datetime(2026, 1, 1, 13, 0, tzinfo=utc)      # = 13:00 UTC
+        end = datetime.datetime(2026, 1, 1, 13, 0, tzinfo=utc)  # = 13:00 UTC
         result = core_utils.timezone_aware_duration(start, end)
         assert result == datetime.timedelta(hours=3)
 
@@ -444,7 +454,9 @@ class TestCoreFieldsModule:
         # target file: core/fields.py
         # function/method: NapStartMaxTimeField.validate
         # branch or behavior tested: invalid maximum earlier than configured minimum raises ValidationError
-        fake_sleep = SimpleNamespace(settings=SimpleNamespace(nap_start_min=datetime.time(9, 0)))
+        fake_sleep = SimpleNamespace(
+            settings=SimpleNamespace(nap_start_min=datetime.time(9, 0))
+        )
         monkeypatch.setattr("core.models.Sleep", fake_sleep, raising=False)
         field = core_fields.NapStartMaxTimeField()
 
@@ -457,7 +469,9 @@ class TestCoreFieldsModule:
         # target file: core/fields.py
         # function/method: NapStartMinTimeField.validate
         # branch or behavior tested: invalid minimum later than configured maximum raises ValidationError
-        fake_sleep = SimpleNamespace(settings=SimpleNamespace(nap_start_max=datetime.time(17, 0)))
+        fake_sleep = SimpleNamespace(
+            settings=SimpleNamespace(nap_start_max=datetime.time(17, 0))
+        )
         monkeypatch.setattr("core.models.Sleep", fake_sleep, raising=False)
         field = core_fields.NapStartMinTimeField()
 
@@ -485,7 +499,9 @@ class TestCoreFieldsModule:
     ## Fix#4 - add more for mutation test
     def test_nap_start_max_validates_exactly_equal_to_min_raises(self, monkeypatch):
         # value == nap_start_min → should raise (< is strictly less than)
-        fake_sleep = SimpleNamespace(settings=SimpleNamespace(nap_start_min=datetime.time(9, 0)))
+        fake_sleep = SimpleNamespace(
+            settings=SimpleNamespace(nap_start_min=datetime.time(9, 0))
+        )
         monkeypatch.setattr("core.models.Sleep", fake_sleep, raising=False)
         field = core_fields.NapStartMaxTimeField()
         with pytest.raises(Exception):
@@ -493,7 +509,9 @@ class TestCoreFieldsModule:
 
     ## Fix#4 - add more for mutation test
     def test_nap_start_max_error_code_exact(self, monkeypatch):
-        fake_sleep = SimpleNamespace(settings=SimpleNamespace(nap_start_min=datetime.time(9, 0)))
+        fake_sleep = SimpleNamespace(
+            settings=SimpleNamespace(nap_start_min=datetime.time(9, 0))
+        )
         monkeypatch.setattr("core.models.Sleep", fake_sleep, raising=False)
         field = core_fields.NapStartMaxTimeField()
         with pytest.raises(Exception) as exc:
@@ -502,7 +520,9 @@ class TestCoreFieldsModule:
 
     ## Fix#4 - add more for mutation test
     def test_nap_start_max_error_params_contain_max_and_min(self, monkeypatch):
-        fake_sleep = SimpleNamespace(settings=SimpleNamespace(nap_start_min=datetime.time(9, 0)))
+        fake_sleep = SimpleNamespace(
+            settings=SimpleNamespace(nap_start_min=datetime.time(9, 0))
+        )
         monkeypatch.setattr("core.models.Sleep", fake_sleep, raising=False)
         field = core_fields.NapStartMaxTimeField()
         with pytest.raises(Exception) as exc:
@@ -512,13 +532,19 @@ class TestCoreFieldsModule:
 
     ## Fix#4 - add more for mutation test
     def test_nap_start_max_passes_when_above_min(self, monkeypatch):
-        fake_sleep = SimpleNamespace(settings=SimpleNamespace(nap_start_min=datetime.time(9, 0)))
+        fake_sleep = SimpleNamespace(
+            settings=SimpleNamespace(nap_start_min=datetime.time(9, 0))
+        )
         monkeypatch.setattr("core.models.Sleep", fake_sleep, raising=False)
-        core_fields.NapStartMaxTimeField().validate(datetime.time(10, 0))  # no exception
+        core_fields.NapStartMaxTimeField().validate(
+            datetime.time(10, 0)
+        )  # no exception
 
     ## Fix#4 - add more for mutation test
     def test_nap_start_min_error_code_exact(self, monkeypatch):
-        fake_sleep = SimpleNamespace(settings=SimpleNamespace(nap_start_max=datetime.time(17, 0)))
+        fake_sleep = SimpleNamespace(
+            settings=SimpleNamespace(nap_start_max=datetime.time(17, 0))
+        )
         monkeypatch.setattr("core.models.Sleep", fake_sleep, raising=False)
         field = core_fields.NapStartMinTimeField()
         with pytest.raises(Exception) as exc:
@@ -527,7 +553,9 @@ class TestCoreFieldsModule:
 
     ## Fix#4 - add more for mutation test
     def test_nap_start_min_error_params_contain_min_and_max(self, monkeypatch):
-        fake_sleep = SimpleNamespace(settings=SimpleNamespace(nap_start_max=datetime.time(17, 0)))
+        fake_sleep = SimpleNamespace(
+            settings=SimpleNamespace(nap_start_max=datetime.time(17, 0))
+        )
         monkeypatch.setattr("core.models.Sleep", fake_sleep, raising=False)
         field = core_fields.NapStartMinTimeField()
         with pytest.raises(Exception) as exc:
@@ -537,9 +565,13 @@ class TestCoreFieldsModule:
 
     ## Fix#4 - add more for mutation test
     def test_nap_start_min_passes_when_below_max(self, monkeypatch):
-        fake_sleep = SimpleNamespace(settings=SimpleNamespace(nap_start_max=datetime.time(17, 0)))
+        fake_sleep = SimpleNamespace(
+            settings=SimpleNamespace(nap_start_max=datetime.time(17, 0))
+        )
         monkeypatch.setattr("core.models.Sleep", fake_sleep, raising=False)
-        core_fields.NapStartMinTimeField().validate(datetime.time(16, 0))  # no exception
+        core_fields.NapStartMinTimeField().validate(
+            datetime.time(16, 0)
+        )  # no exception
 
 
 class TestCoreFormsModule:
@@ -557,13 +589,18 @@ class TestCoreFormsModule:
         assert result["child"] == "slug"
         assert result["timer"] == 1
 
-    def test_set_initial_values_prefills_child_timer_feeding_and_sleep(self, monkeypatch):
+    def test_set_initial_values_prefills_child_timer_feeding_and_sleep(
+        self, monkeypatch
+    ):
         # target file: core/forms.py
         # function/method: set_initial_values
         # branch or behavior tested: child lookup, timer lookup, feeding defaults, sleep nap inference, and custom kwarg cleanup
         fixed_now = datetime.datetime(2026, 4, 1, 12, 0, tzinfo=datetime.timezone.utc)
         child = SimpleNamespace(slug="kid-a")
-        timer = SimpleNamespace(id=9, start=datetime.datetime(2026, 4, 1, 9, 30, tzinfo=datetime.timezone.utc))
+        timer = SimpleNamespace(
+            id=9,
+            start=datetime.datetime(2026, 4, 1, 9, 30, tzinfo=datetime.timezone.utc),
+        )
         last_feeding = SimpleNamespace(
             child=child,
             type="formula",
@@ -601,7 +638,9 @@ class TestCoreFormsModule:
         monkeypatch.setattr(core_forms, "models", fake_models)
         monkeypatch.setattr(core_forms, "Timer", fake_models.Timer)
         monkeypatch.setattr(core_forms.timezone, "now", lambda: fixed_now)
-        monkeypatch.setattr(core_forms.timezone, "localtime", lambda value=None: value or fixed_now)
+        monkeypatch.setattr(
+            core_forms.timezone, "localtime", lambda value=None: value or fixed_now
+        )
 
         kwargs = {"child": "kid-a", "timer": 9}
         result = core_forms.set_initial_values(kwargs, core_forms.FeedingForm)
@@ -621,7 +660,9 @@ class TestCoreFormsModule:
         sleep_result = core_forms.set_initial_values(sleep_kwargs, core_forms.SleepForm)
         assert sleep_result["initial"]["nap"] is True
 
-    def test_set_initial_values_uses_only_child_without_method_for_breastfeeding(self, monkeypatch):
+    def test_set_initial_values_uses_only_child_without_method_for_breastfeeding(
+        self, monkeypatch
+    ):
         # target file: core/forms.py
         # function/method: set_initial_values
         # branch or behavior tested: left/right breast feeding carries type only, not bottle method
@@ -661,7 +702,8 @@ class TestCoreFormsModule:
         monkeypatch.setattr(
             core_forms.timezone,
             "localtime",
-            lambda value=None: value or datetime.datetime(2026, 4, 1, 8, 0, tzinfo=datetime.timezone.utc),
+            lambda value=None: value
+            or datetime.datetime(2026, 4, 1, 8, 0, tzinfo=datetime.timezone.utc),
         )
 
         result = core_forms.set_initial_values({}, core_forms.FeedingForm)
@@ -671,7 +713,9 @@ class TestCoreFormsModule:
         assert "method" not in result["initial"]
         assert feeding_qs.filter_calls == [{"child": child}]
 
-    def test_set_initial_values_ignores_missing_timer_and_marks_non_nap_by_default(self, monkeypatch):
+    def test_set_initial_values_ignores_missing_timer_and_marks_non_nap_by_default(
+        self, monkeypatch
+    ):
         # target file: core/forms.py
         # function/method: set_initial_values
         # branch or behavior tested: missing timer is ignored and sleep nap defaults false outside configured window
@@ -681,12 +725,16 @@ class TestCoreFormsModule:
         timer_get = Mock(side_effect=FakeDoesNotExist)
 
         fake_models = SimpleNamespace(
-            Child=SimpleNamespace(objects=SimpleNamespace(first=lambda: None), count=lambda: 0),
+            Child=SimpleNamespace(
+                objects=SimpleNamespace(first=lambda: None), count=lambda: 0
+            ),
             Timer=SimpleNamespace(
                 objects=SimpleNamespace(get=timer_get),
                 DoesNotExist=FakeDoesNotExist,
             ),
-            Feeding=SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([]))),
+            Feeding=SimpleNamespace(
+                objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([]))
+            ),
             Sleep=SimpleNamespace(
                 settings=SimpleNamespace(
                     nap_start_min=datetime.time(9, 0),
@@ -699,7 +747,8 @@ class TestCoreFormsModule:
         monkeypatch.setattr(
             core_forms.timezone,
             "localtime",
-            lambda value=None: value or datetime.datetime(2026, 4, 1, 6, 30, tzinfo=datetime.timezone.utc),
+            lambda value=None: value
+            or datetime.datetime(2026, 4, 1, 6, 30, tzinfo=datetime.timezone.utc),
         )
 
         result = core_forms.set_initial_values({"timer": 404}, core_forms.SleepForm)
@@ -709,7 +758,9 @@ class TestCoreFormsModule:
         assert "start" not in result["initial"]
         timer_get.assert_called_once_with(id=404)
 
-    def test_core_model_form_save_stops_timer_and_respects_commit_flag(self, monkeypatch):
+    def test_core_model_form_save_stops_timer_and_respects_commit_flag(
+        self, monkeypatch
+    ):
         # target file: core/forms.py
         # function/method: CoreModelForm.save
         # branch or behavior tested: timer stop is invoked and save/save_m2m are gated by commit
@@ -748,12 +799,22 @@ class TestCoreFormsModule:
         # branch or behavior tested: fieldset metadata and field ordering are preserved for rendering
         class DemoForm(core_forms.CoreModelForm):
             fieldsets = [
-                {"fields": ["alpha", "beta"], "layout": "required", "layout_attrs": {"label": "Main"}},
+                {
+                    "fields": ["alpha", "beta"],
+                    "layout": "required",
+                    "layout_attrs": {"label": "Main"},
+                },
                 {"fields": ["gamma"]},
             ]
 
             def __iter__(self):
-                return iter([DummyBoundField("alpha"), DummyBoundField("beta"), DummyBoundField("gamma")])
+                return iter(
+                    [
+                        DummyBoundField("alpha"),
+                        DummyBoundField("beta"),
+                        DummyBoundField("gamma"),
+                    ]
+                )
 
         form = object.__new__(DemoForm)
         hydrated = DemoForm.hydrated_fielsets.__get__(form, DemoForm)
@@ -763,12 +824,16 @@ class TestCoreFormsModule:
         assert [field.name for field in hydrated[0]["fields"]] == ["alpha", "beta"]
         assert [field.name for field in hydrated[1]["fields"]] == ["gamma"]
 
-    def test_bottle_feeding_form_clean_sets_end_from_start_only_when_present(self, monkeypatch):
+    def test_bottle_feeding_form_clean_sets_end_from_start_only_when_present(
+        self, monkeypatch
+    ):
         # target file: core/forms.py
         # function/method: BottleFeedingForm.clean
         # branch or behavior tested: start value is copied into instance.end only when available
         start = datetime.datetime(2026, 4, 1, 8, 0, tzinfo=datetime.timezone.utc)
-        monkeypatch.setattr(django_forms.ModelForm, "clean", lambda self: {"start": start})
+        monkeypatch.setattr(
+            django_forms.ModelForm, "clean", lambda self: {"start": start}
+        )
         form = object.__new__(core_forms.BottleFeedingForm)
         form.instance = SimpleNamespace(end=None)
 
@@ -783,13 +848,17 @@ class TestCoreFormsModule:
         assert cleaned == {}
         assert form.instance.end == "unchanged"
 
-    def test_bottle_feeding_form_save_forces_bottle_method_and_same_end(self, monkeypatch):
+    def test_bottle_feeding_form_save_forces_bottle_method_and_same_end(
+        self, monkeypatch
+    ):
         # target file: core/forms.py
         # function/method: BottleFeedingForm.save
         # branch or behavior tested: bottle feed save overwrites method/end and respects commit flag
         start = datetime.datetime(2026, 4, 1, 8, 0, tzinfo=datetime.timezone.utc)
         instance = SimpleNamespace(start=start, method=None, end=None, save=Mock())
-        monkeypatch.setattr(core_forms.CoreModelForm, "save", lambda self, commit=False: instance)
+        monkeypatch.setattr(
+            core_forms.CoreModelForm, "save", lambda self, commit=False: instance
+        )
 
         form = object.__new__(core_forms.BottleFeedingForm)
         form.save_m2m = Mock()
@@ -855,25 +924,43 @@ class TestCoreFormsModule:
         assert captured["timer"] == "ignored"
 
         instance = SimpleNamespace(user=None, save=Mock())
-        monkeypatch.setattr(core_forms.CoreModelForm, "save", lambda self, commit=False: instance)
+        monkeypatch.setattr(
+            core_forms.CoreModelForm, "save", lambda self, commit=False: instance
+        )
         result = core_forms.TimerForm.save(form)
         assert result is instance
         assert instance.user is user
         instance.save.assert_called_once_with()
 
     ## Fix#1
-    def test_set_initial_values_no_child_count_zero_does_not_set_child(self, monkeypatch):
+    def test_set_initial_values_no_child_count_zero_does_not_set_child(
+        self, monkeypatch
+    ):
         # elif models.Child.count() == 1 branch: count=0 → no child set
         fake_models = SimpleNamespace(
-            Child=SimpleNamespace(objects=SimpleNamespace(first=lambda: None), count=lambda: 0),
-            Timer=SimpleNamespace(objects=SimpleNamespace(get=lambda id: None), DoesNotExist=LookupError),
-            Feeding=SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([]))),
-            Sleep=SimpleNamespace(settings=SimpleNamespace(nap_start_min=datetime.time(9), nap_start_max=datetime.time(17))),
+            Child=SimpleNamespace(
+                objects=SimpleNamespace(first=lambda: None), count=lambda: 0
+            ),
+            Timer=SimpleNamespace(
+                objects=SimpleNamespace(get=lambda id: None), DoesNotExist=LookupError
+            ),
+            Feeding=SimpleNamespace(
+                objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([]))
+            ),
+            Sleep=SimpleNamespace(
+                settings=SimpleNamespace(
+                    nap_start_min=datetime.time(9), nap_start_max=datetime.time(17)
+                )
+            ),
         )
         monkeypatch.setattr(core_forms, "models", fake_models)
         monkeypatch.setattr(core_forms, "Timer", fake_models.Timer)
-        monkeypatch.setattr(core_forms.timezone, "localtime",
-                            lambda v=None: v or datetime.datetime(2026, 4, 1, 8, 0, tzinfo=datetime.timezone.utc))
+        monkeypatch.setattr(
+            core_forms.timezone,
+            "localtime",
+            lambda v=None: v
+            or datetime.datetime(2026, 4, 1, 8, 0, tzinfo=datetime.timezone.utc),
+        )
 
         result = core_forms.set_initial_values({}, core_forms.FeedingForm)
         assert "child" not in result.get("initial", {})
@@ -882,16 +969,30 @@ class TestCoreFormsModule:
     def test_set_initial_values_sleep_nap_false_outside_window(self, monkeypatch):
         # SleepForm branch: time outside nap window → nap=False
         fake_models = SimpleNamespace(
-            Child=SimpleNamespace(objects=SimpleNamespace(first=lambda: None), count=lambda: 0),
-            Timer=SimpleNamespace(objects=SimpleNamespace(get=lambda id: None), DoesNotExist=LookupError),
-            Feeding=SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([]))),
-            Sleep=SimpleNamespace(settings=SimpleNamespace(nap_start_min=datetime.time(9), nap_start_max=datetime.time(17))),
+            Child=SimpleNamespace(
+                objects=SimpleNamespace(first=lambda: None), count=lambda: 0
+            ),
+            Timer=SimpleNamespace(
+                objects=SimpleNamespace(get=lambda id: None), DoesNotExist=LookupError
+            ),
+            Feeding=SimpleNamespace(
+                objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([]))
+            ),
+            Sleep=SimpleNamespace(
+                settings=SimpleNamespace(
+                    nap_start_min=datetime.time(9), nap_start_max=datetime.time(17)
+                )
+            ),
         )
         monkeypatch.setattr(core_forms, "models", fake_models)
         monkeypatch.setattr(core_forms, "Timer", fake_models.Timer)
         # 6am is outside the 9am-5pm nap window
-        monkeypatch.setattr(core_forms.timezone, "localtime",
-                            lambda v=None: v or datetime.datetime(2026, 4, 1, 6, 0, tzinfo=datetime.timezone.utc))
+        monkeypatch.setattr(
+            core_forms.timezone,
+            "localtime",
+            lambda v=None: v
+            or datetime.datetime(2026, 4, 1, 6, 0, tzinfo=datetime.timezone.utc),
+        )
 
         result = core_forms.set_initial_values({}, core_forms.SleepForm)
         assert result["initial"]["nap"] is False
@@ -901,18 +1002,33 @@ class TestCoreFormsModule:
         # if last_feeding: branch — no last feeding → no type/method set
         child = SimpleNamespace(slug="kid")
         fake_models = SimpleNamespace(
-            Child=SimpleNamespace(objects=SimpleNamespace(
-                filter=lambda **kwargs: FakeQuerySet([child]),
-                first=lambda: child,
-            ), count=lambda: 1),
-            Timer=SimpleNamespace(objects=SimpleNamespace(get=lambda id: None), DoesNotExist=LookupError),
-            Feeding=SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([]))),
-            Sleep=SimpleNamespace(settings=SimpleNamespace(nap_start_min=datetime.time(9), nap_start_max=datetime.time(17))),
+            Child=SimpleNamespace(
+                objects=SimpleNamespace(
+                    filter=lambda **kwargs: FakeQuerySet([child]),
+                    first=lambda: child,
+                ),
+                count=lambda: 1,
+            ),
+            Timer=SimpleNamespace(
+                objects=SimpleNamespace(get=lambda id: None), DoesNotExist=LookupError
+            ),
+            Feeding=SimpleNamespace(
+                objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([]))
+            ),
+            Sleep=SimpleNamespace(
+                settings=SimpleNamespace(
+                    nap_start_min=datetime.time(9), nap_start_max=datetime.time(17)
+                )
+            ),
         )
         monkeypatch.setattr(core_forms, "models", fake_models)
         monkeypatch.setattr(core_forms, "Timer", fake_models.Timer)
-        monkeypatch.setattr(core_forms.timezone, "localtime",
-                            lambda v=None: v or datetime.datetime(2026, 4, 1, 8, 0, tzinfo=datetime.timezone.utc))
+        monkeypatch.setattr(
+            core_forms.timezone,
+            "localtime",
+            lambda v=None: v
+            or datetime.datetime(2026, 4, 1, 8, 0, tzinfo=datetime.timezone.utc),
+        )
 
         result = core_forms.set_initial_values({}, core_forms.FeedingForm)
         assert "type" not in result.get("initial", {})
@@ -924,7 +1040,11 @@ class TestCoreFormsModule:
         get_mock = Mock()
         instance = SimpleNamespace(save=Mock())
         monkeypatch.setattr(core_forms.models.Timer.objects, "get", get_mock)
-        monkeypatch.setattr(core_forms.CoreModelForm.__bases__[0], "save", lambda self, commit=False: instance)
+        monkeypatch.setattr(
+            core_forms.CoreModelForm.__bases__[0],
+            "save",
+            lambda self, commit=False: instance,
+        )
 
         form = object.__new__(core_forms.CoreModelForm)
         form.timer_id = None
@@ -944,17 +1064,29 @@ class TestCoreFormsModule:
     ## Fix#4 - add more for mutation test
     def test_set_initial_values_creates_initial_key_when_missing(self, monkeypatch):
         fake_models = SimpleNamespace(
-            Child=SimpleNamespace(objects=SimpleNamespace(first=lambda: None), count=lambda: 0),
-            Timer=SimpleNamespace(objects=SimpleNamespace(get=lambda id: None), DoesNotExist=LookupError),
-            Feeding=SimpleNamespace(objects=SimpleNamespace(filter=lambda **kw: FakeQuerySet([]))),
-            Sleep=SimpleNamespace(settings=SimpleNamespace(nap_start_min=datetime.time(9),
-                                                            nap_start_max=datetime.time(17))),
+            Child=SimpleNamespace(
+                objects=SimpleNamespace(first=lambda: None), count=lambda: 0
+            ),
+            Timer=SimpleNamespace(
+                objects=SimpleNamespace(get=lambda id: None), DoesNotExist=LookupError
+            ),
+            Feeding=SimpleNamespace(
+                objects=SimpleNamespace(filter=lambda **kw: FakeQuerySet([]))
+            ),
+            Sleep=SimpleNamespace(
+                settings=SimpleNamespace(
+                    nap_start_min=datetime.time(9), nap_start_max=datetime.time(17)
+                )
+            ),
         )
         monkeypatch.setattr(core_forms, "models", fake_models)
         monkeypatch.setattr(core_forms, "Timer", fake_models.Timer)
-        monkeypatch.setattr(core_forms.timezone, "localtime",
-                            lambda v=None: v or datetime.datetime(2026, 4, 1, 8, 0,
-                                                                   tzinfo=datetime.timezone.utc))
+        monkeypatch.setattr(
+            core_forms.timezone,
+            "localtime",
+            lambda v=None: v
+            or datetime.datetime(2026, 4, 1, 8, 0, tzinfo=datetime.timezone.utc),
+        )
         result = core_forms.set_initial_values({}, core_forms.SleepForm)
         assert "initial" in result
 
@@ -970,21 +1102,35 @@ class TestCoreFormsModule:
 
         fake_models = SimpleNamespace(
             Child=SimpleNamespace(
-                objects=SimpleNamespace(filter=lambda **kw: FilterQS().filter(**kw), first=lambda: None),
+                objects=SimpleNamespace(
+                    filter=lambda **kw: FilterQS().filter(**kw), first=lambda: None
+                ),
                 count=lambda: 2,
             ),
-            Timer=SimpleNamespace(objects=SimpleNamespace(get=lambda id: None), DoesNotExist=LookupError),
-            Feeding=SimpleNamespace(objects=SimpleNamespace(filter=lambda **kw: FakeQuerySet([]))),
-            Sleep=SimpleNamespace(settings=SimpleNamespace(nap_start_min=datetime.time(9),
-                                                            nap_start_max=datetime.time(17))),
+            Timer=SimpleNamespace(
+                objects=SimpleNamespace(get=lambda id: None), DoesNotExist=LookupError
+            ),
+            Feeding=SimpleNamespace(
+                objects=SimpleNamespace(filter=lambda **kw: FakeQuerySet([]))
+            ),
+            Sleep=SimpleNamespace(
+                settings=SimpleNamespace(
+                    nap_start_min=datetime.time(9), nap_start_max=datetime.time(17)
+                )
+            ),
         )
         monkeypatch.setattr(core_forms, "models", fake_models)
         monkeypatch.setattr(core_forms, "Timer", fake_models.Timer)
-        monkeypatch.setattr(core_forms.timezone, "localtime",
-                            lambda v=None: v or datetime.datetime(2026, 4, 1, 8, 0,
-                                                                   tzinfo=datetime.timezone.utc))
+        monkeypatch.setattr(
+            core_forms.timezone,
+            "localtime",
+            lambda v=None: v
+            or datetime.datetime(2026, 4, 1, 8, 0, tzinfo=datetime.timezone.utc),
+        )
 
-        result = core_forms.set_initial_values({"child": "kid-a"}, core_forms.FeedingForm)
+        result = core_forms.set_initial_values(
+            {"child": "kid-a"}, core_forms.FeedingForm
+        )
         assert filter_calls[0] == {"slug": "kid-a"}
         assert result["initial"]["child"] is child
 
@@ -992,21 +1138,33 @@ class TestCoreFormsModule:
     def test_set_initial_values_timer_sets_start_end_timer_keys(self, monkeypatch):
         fixed_now = datetime.datetime(2026, 4, 1, 12, 0, tzinfo=datetime.timezone.utc)
         child = SimpleNamespace(slug="kid")
-        timer = SimpleNamespace(id=9, start=datetime.datetime(2026, 4, 1, 9, 0,
-                                                               tzinfo=datetime.timezone.utc),
-                                child=None)
+        timer = SimpleNamespace(
+            id=9,
+            start=datetime.datetime(2026, 4, 1, 9, 0, tzinfo=datetime.timezone.utc),
+            child=None,
+        )
         fake_models = SimpleNamespace(
-            Child=SimpleNamespace(objects=SimpleNamespace(first=lambda: None), count=lambda: 0),
-            Timer=SimpleNamespace(objects=SimpleNamespace(get=lambda id: timer), DoesNotExist=LookupError),
-            Feeding=SimpleNamespace(objects=SimpleNamespace(filter=lambda **kw: FakeQuerySet([]))),
-            Sleep=SimpleNamespace(settings=SimpleNamespace(nap_start_min=datetime.time(9),
-                                                            nap_start_max=datetime.time(17))),
+            Child=SimpleNamespace(
+                objects=SimpleNamespace(first=lambda: None), count=lambda: 0
+            ),
+            Timer=SimpleNamespace(
+                objects=SimpleNamespace(get=lambda id: timer), DoesNotExist=LookupError
+            ),
+            Feeding=SimpleNamespace(
+                objects=SimpleNamespace(filter=lambda **kw: FakeQuerySet([]))
+            ),
+            Sleep=SimpleNamespace(
+                settings=SimpleNamespace(
+                    nap_start_min=datetime.time(9), nap_start_max=datetime.time(17)
+                )
+            ),
         )
         monkeypatch.setattr(core_forms, "models", fake_models)
         monkeypatch.setattr(core_forms, "Timer", fake_models.Timer)
         monkeypatch.setattr(core_forms.timezone, "now", lambda: fixed_now)
-        monkeypatch.setattr(core_forms.timezone, "localtime",
-                            lambda v=None: v or fixed_now)
+        monkeypatch.setattr(
+            core_forms.timezone, "localtime", lambda v=None: v or fixed_now
+        )
 
         result = core_forms.set_initial_values({"timer": 9}, core_forms.SleepForm)
         assert result["initial"]["timer"] is timer
@@ -1026,7 +1184,9 @@ class TestCoreFormsModule:
             Timer=SimpleNamespace(
                 objects=SimpleNamespace(
                     get=lambda id: SimpleNamespace(
-                        start=datetime.datetime(2026, 4, 1, 9, 0, tzinfo=datetime.timezone.utc)
+                        start=datetime.datetime(
+                            2026, 4, 1, 9, 0, tzinfo=datetime.timezone.utc
+                        )
                     )
                 ),
                 DoesNotExist=LookupError,
@@ -1034,30 +1194,49 @@ class TestCoreFormsModule:
             Feeding=SimpleNamespace(
                 objects=SimpleNamespace(filter=lambda **kw: FakeQuerySet([]))
             ),
-            Sleep=SimpleNamespace(settings=SimpleNamespace(
-                nap_start_min=datetime.time(9),
-                nap_start_max=datetime.time(17),
-            )),
+            Sleep=SimpleNamespace(
+                settings=SimpleNamespace(
+                    nap_start_min=datetime.time(9),
+                    nap_start_max=datetime.time(17),
+                )
+            ),
         )
         monkeypatch.setattr(core_forms, "models", fake_models)
         monkeypatch.setattr(core_forms, "Timer", fake_models.Timer)
-        monkeypatch.setattr(core_forms.timezone, "now",
-                            lambda: datetime.datetime(2026, 4, 1, 12, 0, tzinfo=datetime.timezone.utc))
-        monkeypatch.setattr(core_forms.timezone, "localtime",
-                            lambda v=None: v or datetime.datetime(2026, 4, 1, 8, 0,
-                                                                   tzinfo=datetime.timezone.utc))
-        result = core_forms.set_initial_values({"child": "slug", "timer": 1}, core_forms.SleepForm)
+        monkeypatch.setattr(
+            core_forms.timezone,
+            "now",
+            lambda: datetime.datetime(2026, 4, 1, 12, 0, tzinfo=datetime.timezone.utc),
+        )
+        monkeypatch.setattr(
+            core_forms.timezone,
+            "localtime",
+            lambda v=None: v
+            or datetime.datetime(2026, 4, 1, 8, 0, tzinfo=datetime.timezone.utc),
+        )
+        result = core_forms.set_initial_values(
+            {"child": "slug", "timer": 1}, core_forms.SleepForm
+        )
         assert "child" not in result
         assert "timer" not in result
 
     ## Fix#4 - add more for mutation test
     def test_set_initial_values_nap_true_within_window(self, monkeypatch):
         fake_models = SimpleNamespace(
-            Child=SimpleNamespace(objects=SimpleNamespace(first=lambda: None), count=lambda: 0),
-            Timer=SimpleNamespace(objects=SimpleNamespace(get=lambda id: None), DoesNotExist=LookupError),
-            Feeding=SimpleNamespace(objects=SimpleNamespace(filter=lambda **kw: FakeQuerySet([]))),
-            Sleep=SimpleNamespace(settings=SimpleNamespace(nap_start_min=datetime.time(9),
-                                                            nap_start_max=datetime.time(17))),
+            Child=SimpleNamespace(
+                objects=SimpleNamespace(first=lambda: None), count=lambda: 0
+            ),
+            Timer=SimpleNamespace(
+                objects=SimpleNamespace(get=lambda id: None), DoesNotExist=LookupError
+            ),
+            Feeding=SimpleNamespace(
+                objects=SimpleNamespace(filter=lambda **kw: FakeQuerySet([]))
+            ),
+            Sleep=SimpleNamespace(
+                settings=SimpleNamespace(
+                    nap_start_min=datetime.time(9), nap_start_max=datetime.time(17)
+                )
+            ),
         )
         monkeypatch.setattr(core_forms, "models", fake_models)
         monkeypatch.setattr(core_forms, "Timer", fake_models.Timer)
@@ -1071,16 +1250,27 @@ class TestCoreFormsModule:
     def test_set_initial_values_nap_boundary_at_min_is_true(self, monkeypatch):
         # >= comparison for nap_start_min
         fake_models = SimpleNamespace(
-            Child=SimpleNamespace(objects=SimpleNamespace(first=lambda: None), count=lambda: 0),
-            Timer=SimpleNamespace(objects=SimpleNamespace(get=lambda id: None), DoesNotExist=LookupError),
-            Feeding=SimpleNamespace(objects=SimpleNamespace(filter=lambda **kw: FakeQuerySet([]))),
-            Sleep=SimpleNamespace(settings=SimpleNamespace(nap_start_min=datetime.time(9),
-                                                            nap_start_max=datetime.time(17))),
+            Child=SimpleNamespace(
+                objects=SimpleNamespace(first=lambda: None), count=lambda: 0
+            ),
+            Timer=SimpleNamespace(
+                objects=SimpleNamespace(get=lambda id: None), DoesNotExist=LookupError
+            ),
+            Feeding=SimpleNamespace(
+                objects=SimpleNamespace(filter=lambda **kw: FakeQuerySet([]))
+            ),
+            Sleep=SimpleNamespace(
+                settings=SimpleNamespace(
+                    nap_start_min=datetime.time(9), nap_start_max=datetime.time(17)
+                )
+            ),
         )
         monkeypatch.setattr(core_forms, "models", fake_models)
         monkeypatch.setattr(core_forms, "Timer", fake_models.Timer)
         exactly_min = datetime.datetime(2026, 4, 1, 9, 0, tzinfo=datetime.timezone.utc)
-        monkeypatch.setattr(core_forms.timezone, "localtime", lambda v=None: exactly_min)
+        monkeypatch.setattr(
+            core_forms.timezone, "localtime", lambda v=None: exactly_min
+        )
         result = core_forms.set_initial_values({}, core_forms.SleepForm)
         assert result["initial"]["nap"] is True
 
@@ -1088,26 +1278,45 @@ class TestCoreFormsModule:
     def test_set_initial_values_nap_boundary_at_max_is_true(self, monkeypatch):
         # <= comparison for nap_start_max
         fake_models = SimpleNamespace(
-            Child=SimpleNamespace(objects=SimpleNamespace(first=lambda: None), count=lambda: 0),
-            Timer=SimpleNamespace(objects=SimpleNamespace(get=lambda id: None), DoesNotExist=LookupError),
-            Feeding=SimpleNamespace(objects=SimpleNamespace(filter=lambda **kw: FakeQuerySet([]))),
-            Sleep=SimpleNamespace(settings=SimpleNamespace(nap_start_min=datetime.time(9),
-                                                            nap_start_max=datetime.time(17))),
+            Child=SimpleNamespace(
+                objects=SimpleNamespace(first=lambda: None), count=lambda: 0
+            ),
+            Timer=SimpleNamespace(
+                objects=SimpleNamespace(get=lambda id: None), DoesNotExist=LookupError
+            ),
+            Feeding=SimpleNamespace(
+                objects=SimpleNamespace(filter=lambda **kw: FakeQuerySet([]))
+            ),
+            Sleep=SimpleNamespace(
+                settings=SimpleNamespace(
+                    nap_start_min=datetime.time(9), nap_start_max=datetime.time(17)
+                )
+            ),
         )
         monkeypatch.setattr(core_forms, "models", fake_models)
         monkeypatch.setattr(core_forms, "Timer", fake_models.Timer)
         exactly_max = datetime.datetime(2026, 4, 1, 17, 0, tzinfo=datetime.timezone.utc)
-        monkeypatch.setattr(core_forms.timezone, "localtime", lambda v=None: exactly_max)
+        monkeypatch.setattr(
+            core_forms.timezone, "localtime", lambda v=None: exactly_max
+        )
         result = core_forms.set_initial_values({}, core_forms.SleepForm)
         assert result["initial"]["nap"] is True
 
     ## Fix#4 - add more for mutation test
     def test_core_model_form_save_returns_instance(self, monkeypatch):
         from core.forms import CoreModelForm
+
         instance = SimpleNamespace(save=Mock())
-        monkeypatch.setattr(core_forms.models.Timer.objects, "get", lambda id: SimpleNamespace(stop=Mock()))
+        monkeypatch.setattr(
+            core_forms.models.Timer.objects,
+            "get",
+            lambda id: SimpleNamespace(stop=Mock()),
+        )
         import django.forms as dj_forms
-        monkeypatch.setattr(dj_forms.ModelForm, "save", lambda self, commit=False: instance)
+
+        monkeypatch.setattr(
+            dj_forms.ModelForm, "save", lambda self, commit=False: instance
+        )
         form = object.__new__(CoreModelForm)
         form.timer_id = None
         form.save_m2m = Mock()
@@ -1117,11 +1326,15 @@ class TestCoreFormsModule:
     ## Fix#4 - add more for mutation test
     def test_core_model_form_save_commit_true_calls_save_and_m2m(self, monkeypatch):
         from core.forms import CoreModelForm
+
         saved = []
         m2m_called = []
         instance = SimpleNamespace(save=lambda: saved.append(True))
         import django.forms as dj_forms
-        monkeypatch.setattr(dj_forms.ModelForm, "save", lambda self, commit=False: instance)
+
+        monkeypatch.setattr(
+            dj_forms.ModelForm, "save", lambda self, commit=False: instance
+        )
         form = object.__new__(CoreModelForm)
         form.timer_id = None
         form.save_m2m = lambda: m2m_called.append(True)
@@ -1132,9 +1345,12 @@ class TestCoreFormsModule:
     ## Fix#4 - add more for mutation test
     def test_bottle_feeding_form_save_sets_method_to_bottle(self, monkeypatch):
         from core.forms import BottleFeedingForm
+
         start = datetime.datetime(2026, 4, 1, 8, 0, tzinfo=datetime.timezone.utc)
         instance = SimpleNamespace(start=start, method=None, end=None, save=Mock())
-        monkeypatch.setattr(core_forms.CoreModelForm, "save", lambda self, commit=False: instance)
+        monkeypatch.setattr(
+            core_forms.CoreModelForm, "save", lambda self, commit=False: instance
+        )
         form = object.__new__(BottleFeedingForm)
         form.save_m2m = Mock()
         BottleFeedingForm.save(form, commit=False)
@@ -1144,9 +1360,12 @@ class TestCoreFormsModule:
     ## Fix#4 - add more for mutation test
     def test_bottle_feeding_form_save_sets_end_equals_start(self, monkeypatch):
         from core.forms import BottleFeedingForm
+
         start = datetime.datetime(2026, 4, 1, 8, 0, tzinfo=datetime.timezone.utc)
         instance = SimpleNamespace(start=start, method=None, end=None, save=Mock())
-        monkeypatch.setattr(core_forms.CoreModelForm, "save", lambda self, commit=False: instance)
+        monkeypatch.setattr(
+            core_forms.CoreModelForm, "save", lambda self, commit=False: instance
+        )
         form = object.__new__(BottleFeedingForm)
         form.save_m2m = Mock()
         BottleFeedingForm.save(form, commit=False)
@@ -1156,8 +1375,11 @@ class TestCoreFormsModule:
     ## Fix#4 - add more for mutation test
     def test_child_delete_form_clean_confirm_name_exact_match_passes(self):
         from core.forms import ChildDeleteForm
+
         class ChildInstance:
-            def __str__(self): return "Alice Doe"
+            def __str__(self):
+                return "Alice Doe"
+
         form = object.__new__(ChildDeleteForm)
         form.instance = ChildInstance()
         form.cleaned_data = {"confirm_name": "Alice Doe"}
@@ -1166,12 +1388,16 @@ class TestCoreFormsModule:
     ## Fix#4 - add more for mutation test
     def test_child_delete_form_clean_confirm_name_mismatch_code(self):
         from core.forms import ChildDeleteForm
+
         class ChildInstance:
-            def __str__(self): return "Alice Doe"
+            def __str__(self):
+                return "Alice Doe"
+
         form = object.__new__(ChildDeleteForm)
         form.instance = ChildInstance()
         form.cleaned_data = {"confirm_name": "Wrong"}
         import django.forms as dj_forms
+
         with pytest.raises(dj_forms.ValidationError) as exc:
             ChildDeleteForm.clean_confirm_name(form)
         assert exc.value.code == "confirm_mismatch"
@@ -1179,6 +1405,7 @@ class TestCoreFormsModule:
     ## Fix#4 - add more for mutation test
     def test_child_delete_form_save_returns_instance(self):
         from core.forms import ChildDeleteForm
+
         instance = SimpleNamespace(delete=Mock())
         form = object.__new__(ChildDeleteForm)
         form.instance = instance
@@ -1189,9 +1416,13 @@ class TestCoreFormsModule:
     ## Fix#4 - add more for mutation test
     def test_timer_form_init_user_not_in_super_kwargs(self, monkeypatch):
         from core.forms import TimerForm
+
         captured = {}
-        monkeypatch.setattr(core_forms.CoreModelForm, "__init__",
-                            lambda self, *a, **kw: captured.update(kw))
+        monkeypatch.setattr(
+            core_forms.CoreModelForm,
+            "__init__",
+            lambda self, *a, **kw: captured.update(kw),
+        )
         user = SimpleNamespace(username="tester")
         form = TimerForm(user=user, timer="x")
         assert form.user is user
@@ -1200,9 +1431,12 @@ class TestCoreFormsModule:
     ## Fix#4 - add more for mutation test
     def test_timer_form_save_assigns_user_to_instance(self, monkeypatch):
         from core.forms import TimerForm
+
         user = SimpleNamespace(username="tester")
         instance = SimpleNamespace(user=None, save=Mock())
-        monkeypatch.setattr(core_forms.CoreModelForm, "save", lambda self, commit=False: instance)
+        monkeypatch.setattr(
+            core_forms.CoreModelForm, "save", lambda self, commit=False: instance
+        )
         form = object.__new__(TimerForm)
         form.user = user
         TimerForm.save(form)
@@ -1211,7 +1445,9 @@ class TestCoreFormsModule:
 
 
 class TestCoreViewsModule:
-    def test_prepare_timeline_context_data_sets_previous_and_optional_next_dates(self, monkeypatch):
+    def test_prepare_timeline_context_data_sets_previous_and_optional_next_dates(
+        self, monkeypatch
+    ):
         # target file: core/views.py
         # function/method: _prepare_timeline_context_data
         # branch or behavior tested: parsed date populates timeline data and only past dates get a next-date link
@@ -1220,12 +1456,20 @@ class TestCoreViewsModule:
         monkeypatch.setattr(
             core_views.timezone,
             "datetime",
-            SimpleNamespace(strptime=lambda value, fmt: datetime.datetime(2026, 4, 15, 0, 0)),
+            SimpleNamespace(
+                strptime=lambda value, fmt: datetime.datetime(2026, 4, 15, 0, 0)
+            ),
         )
         monkeypatch.setattr(core_views.timezone, "make_aware", lambda value: fake_date)
         monkeypatch.setattr(core_views.timezone, "localtime", lambda value: value)
-        monkeypatch.setattr(core_views.timezone, "localdate", lambda: datetime.date(2026, 4, 17))
-        monkeypatch.setattr(core_views.timeline, "get_objects", lambda date, child=None: captured.append((date, child)) or ["evt"])
+        monkeypatch.setattr(
+            core_views.timezone, "localdate", lambda: datetime.date(2026, 4, 17)
+        )
+        monkeypatch.setattr(
+            core_views.timeline,
+            "get_objects",
+            lambda date, child=None: captured.append((date, child)) or ["evt"],
+        )
 
         context = {}
         core_views._prepare_timeline_context_data(context, "2026-04-15", child="kid")
@@ -1236,7 +1480,9 @@ class TestCoreViewsModule:
         assert context["date_next"] == fake_date + datetime.timedelta(days=1)
         assert captured == [(fake_date, "kid")]
 
-        monkeypatch.setattr(core_views.timezone, "localdate", lambda: datetime.date(2026, 4, 15))
+        monkeypatch.setattr(
+            core_views.timezone, "localdate", lambda: datetime.date(2026, 4, 15)
+        )
         today_context = {}
         core_views._prepare_timeline_context_data(today_context, "2026-04-15")
         assert "date_next" not in today_context
@@ -1255,17 +1501,23 @@ class TestCoreViewsModule:
         assert with_child == "Timer entry for Ava added!"
         assert without_child == "Timer entry added!"
 
-    def test_core_add_view_get_form_kwargs_includes_only_truthy_query_params(self, monkeypatch):
+    def test_core_add_view_get_form_kwargs_includes_only_truthy_query_params(
+        self, monkeypatch
+    ):
         # target file: core/views.py
         # function/method: CoreAddView.get_form_kwargs
         # branch or behavior tested: child/timer query params are forwarded only when supplied
-        monkeypatch.setattr(core_views.CreateView, "get_form_kwargs", lambda self: {"base": True})
+        monkeypatch.setattr(
+            core_views.CreateView, "get_form_kwargs", lambda self: {"base": True}
+        )
 
         class DemoView(core_views.CoreAddView):
             pass
 
         view = DemoView()
-        view.request = SimpleNamespace(GET={"child": "kid-a", "timer": "8", "ignored": "x"})
+        view.request = SimpleNamespace(
+            GET={"child": "kid-a", "timer": "8", "ignored": "x"}
+        )
         assert view.get_form_kwargs() == {"base": True, "child": "kid-a", "timer": "8"}
 
         view.request = SimpleNamespace(GET={"child": "", "timer": None})
@@ -1284,9 +1536,14 @@ class TestCoreViewsModule:
         update_view = DemoUpdate()
         delete_view = DemoDelete()
         child_delete_view = core_views.ChildDelete()
-        child_delete_view.model = SimpleNamespace(_meta=SimpleNamespace(verbose_name="child"))
+        child_delete_view.model = SimpleNamespace(
+            _meta=SimpleNamespace(verbose_name="child")
+        )
 
-        assert update_view.get_success_message({"child": "Ava"}) == "Temperature entry for Ava updated."
+        assert (
+            update_view.get_success_message({"child": "Ava"})
+            == "Temperature entry for Ava updated."
+        )
         assert update_view.get_success_message({}) == "Temperature entry updated."
         assert delete_view.get_success_message({}) == "Temperature entry deleted."
         assert child_delete_view.get_success_message({}) == "Child entry deleted."
@@ -1295,8 +1552,12 @@ class TestCoreViewsModule:
         # target file: core/views.py
         # function/method: TimerAdd.get_form_kwargs / TimerUpdate.get_form_kwargs
         # branch or behavior tested: authenticated user is always injected into timer forms
-        monkeypatch.setattr(core_views.CreateView, "get_form_kwargs", lambda self: {"base": 1})
-        monkeypatch.setattr(core_views.UpdateView, "get_form_kwargs", lambda self: {"base": 2})
+        monkeypatch.setattr(
+            core_views.CreateView, "get_form_kwargs", lambda self: {"base": 1}
+        )
+        monkeypatch.setattr(
+            core_views.UpdateView, "get_form_kwargs", lambda self: {"base": 2}
+        )
         user = SimpleNamespace(username="tester")
 
         add_view = core_views.TimerAdd()
@@ -1311,7 +1572,11 @@ class TestCoreViewsModule:
         # target file: core/views.py
         # function/method: TimerAdd.get_success_url / TimerUpdate.get_success_url
         # branch or behavior tested: timer detail redirect uses object primary key
-        monkeypatch.setattr(core_views, "reverse", lambda name, kwargs=None, args=None: f"{name}:{kwargs['pk']}")
+        monkeypatch.setattr(
+            core_views,
+            "reverse",
+            lambda name, kwargs=None, args=None: f"{name}:{kwargs['pk']}",
+        )
 
         add_view = core_views.TimerAdd()
         add_view.object = SimpleNamespace(pk=123)
@@ -1321,7 +1586,9 @@ class TestCoreViewsModule:
         update_view.get_object = lambda: SimpleNamespace(pk=456)
         assert update_view.get_success_url() == "core:timer-detail:456"
 
-    def test_timer_add_quick_sets_child_from_post_then_falls_back_to_single_child(self, monkeypatch):
+    def test_timer_add_quick_sets_child_from_post_then_falls_back_to_single_child(
+        self, monkeypatch
+    ):
         # target file: core/views.py
         # function/method: TimerAddQuick.post
         # branch or behavior tested: explicit child POST wins, otherwise single-child fallback is used, then redirect URL is resolved
@@ -1342,14 +1609,28 @@ class TestCoreViewsModule:
             return timer
 
         monkeypatch.setattr(core_views.models.Timer.objects, "create", create_timer)
-        monkeypatch.setattr(core_views.models.Child.objects, "get", lambda pk: explicit_child)
+        monkeypatch.setattr(
+            core_views.models.Child.objects, "get", lambda pk: explicit_child
+        )
         monkeypatch.setattr(core_views.models.Child, "count", lambda: 1)
-        monkeypatch.setattr(core_views.models.Child.objects, "first", lambda: fallback_child)
-        monkeypatch.setattr(core_views, "reverse", lambda name, args=None, kwargs=None: f"{name}:{next(iter(args))}")
-        monkeypatch.setattr(core_views.RedirectView, "get", lambda self, request, *args, **kwargs: self.url)
+        monkeypatch.setattr(
+            core_views.models.Child.objects, "first", lambda: fallback_child
+        )
+        monkeypatch.setattr(
+            core_views,
+            "reverse",
+            lambda name, args=None, kwargs=None: f"{name}:{next(iter(args))}",
+        )
+        monkeypatch.setattr(
+            core_views.RedirectView,
+            "get",
+            lambda self, request, *args, **kwargs: self.url,
+        )
 
         view = core_views.TimerAddQuick()
-        request = SimpleNamespace(user="user-1", POST={"child": "7"}, GET={"next": "/done"})
+        request = SimpleNamespace(
+            user="user-1", POST={"child": "7"}, GET={"next": "/done"}
+        )
         assert view.post(request) == "/done"
         assert created[-1].child is explicit_child
         created[-1].save.assert_called_once_with()
@@ -1360,7 +1641,9 @@ class TestCoreViewsModule:
         assert created[-1].child is fallback_child
         assert result == "core:timer-detail:55"
 
-    def test_timer_restart_restarts_timer_pushes_message_and_redirects(self, monkeypatch):
+    def test_timer_restart_restarts_timer_pushes_message_and_redirects(
+        self, monkeypatch
+    ):
         # target file: core/views.py
         # function/method: TimerRestart.post / TimerRestart.get_redirect_url
         # branch or behavior tested: timer restart side effect occurs before redirect generation
@@ -1375,9 +1658,21 @@ class TestCoreViewsModule:
         timer._restart = Mock()
         monkeypatch.setattr(core_views.models.Timer.objects, "get", lambda id: timer)
         success_messages = []
-        monkeypatch.setattr(core_views.messages, "success", lambda request, message: success_messages.append((request, message)))
-        monkeypatch.setattr(core_views.RedirectView, "get", lambda self, request, *args, **kwargs: "redirected")
-        monkeypatch.setattr(core_views, "reverse", lambda name, kwargs=None, args=None: f"{name}:{kwargs['pk']}")
+        monkeypatch.setattr(
+            core_views.messages,
+            "success",
+            lambda request, message: success_messages.append((request, message)),
+        )
+        monkeypatch.setattr(
+            core_views.RedirectView,
+            "get",
+            lambda self, request, *args, **kwargs: "redirected",
+        )
+        monkeypatch.setattr(
+            core_views,
+            "reverse",
+            lambda name, kwargs=None, args=None: f"{name}:{kwargs['pk']}",
+        )
 
         view = core_views.TimerRestart()
         request = SimpleNamespace()
@@ -1390,12 +1685,19 @@ class TestCoreViewsModule:
     def test_prepare_timeline_context_no_next_date_when_today(self, monkeypatch):
         # Already tested — kept to confirm partial branch closed
         fake_date = datetime.datetime(2026, 4, 15, 0, 0, tzinfo=datetime.timezone.utc)
-        monkeypatch.setattr(core_views.timezone, "datetime",
-                            SimpleNamespace(strptime=lambda v, f: datetime.datetime(2026, 4, 15, 0, 0)))
+        monkeypatch.setattr(
+            core_views.timezone,
+            "datetime",
+            SimpleNamespace(strptime=lambda v, f: datetime.datetime(2026, 4, 15, 0, 0)),
+        )
         monkeypatch.setattr(core_views.timezone, "make_aware", lambda v: fake_date)
         monkeypatch.setattr(core_views.timezone, "localtime", lambda v: v)
-        monkeypatch.setattr(core_views.timezone, "localdate", lambda: datetime.date(2026, 4, 15))
-        monkeypatch.setattr(core_views.timeline, "get_objects", lambda date, child=None: [])
+        monkeypatch.setattr(
+            core_views.timezone, "localdate", lambda: datetime.date(2026, 4, 15)
+        )
+        monkeypatch.setattr(
+            core_views.timeline, "get_objects", lambda date, child=None: []
+        )
 
         context = {}
         core_views._prepare_timeline_context_data(context, "2026-04-15")
@@ -1405,10 +1707,16 @@ class TestCoreViewsModule:
     def test_timeline_view_redirects_when_single_child(self, monkeypatch):
         # Timeline.get: children==1 → redirect to child detail
         monkeypatch.setattr(core_views.models.Child.objects, "count", lambda: 1)
-        monkeypatch.setattr(core_views.models.Child.objects, "first",
-                            lambda: SimpleNamespace(slug="ava"))
-        monkeypatch.setattr(core_views, "reverse",
-                            lambda name, args=None, kwargs=None: f"/core/children/ava/")
+        monkeypatch.setattr(
+            core_views.models.Child.objects,
+            "first",
+            lambda: SimpleNamespace(slug="ava"),
+        )
+        monkeypatch.setattr(
+            core_views,
+            "reverse",
+            lambda name, args=None, kwargs=None: f"/core/children/ava/",
+        )
 
         view = core_views.Timeline()
         request = SimpleNamespace(GET={})
@@ -1426,16 +1734,37 @@ class TestCoreViewsModule:
             status_code = 200
 
         import django.views.generic.base as base_views
-        monkeypatch.setattr(base_views.TemplateView, "get",
-                            lambda self, request, *a, **kw: FakeSuperResponse())
-        monkeypatch.setattr(core_views.timeline, "get_objects", lambda date, child=None: [])
-        monkeypatch.setattr(core_views.timezone, "localdate", lambda: datetime.date(2026, 4, 15))
-        monkeypatch.setattr(core_views.timezone, "datetime",
-                            SimpleNamespace(strptime=lambda v, f: datetime.datetime(2026, 4, 15, 0, 0)))
-        monkeypatch.setattr(core_views.timezone, "make_aware",
-                            lambda v: datetime.datetime(2026, 4, 15, 0, 0, tzinfo=datetime.timezone.utc))
-        monkeypatch.setattr(core_views.timezone, "localtime",
-                            lambda v: datetime.datetime(2026, 4, 15, 0, 0, tzinfo=datetime.timezone.utc))
+
+        monkeypatch.setattr(
+            base_views.TemplateView,
+            "get",
+            lambda self, request, *a, **kw: FakeSuperResponse(),
+        )
+        monkeypatch.setattr(
+            core_views.timeline, "get_objects", lambda date, child=None: []
+        )
+        monkeypatch.setattr(
+            core_views.timezone, "localdate", lambda: datetime.date(2026, 4, 15)
+        )
+        monkeypatch.setattr(
+            core_views.timezone,
+            "datetime",
+            SimpleNamespace(strptime=lambda v, f: datetime.datetime(2026, 4, 15, 0, 0)),
+        )
+        monkeypatch.setattr(
+            core_views.timezone,
+            "make_aware",
+            lambda v: datetime.datetime(
+                2026, 4, 15, 0, 0, tzinfo=datetime.timezone.utc
+            ),
+        )
+        monkeypatch.setattr(
+            core_views.timezone,
+            "localtime",
+            lambda v: datetime.datetime(
+                2026, 4, 15, 0, 0, tzinfo=datetime.timezone.utc
+            ),
+        )
 
         view = core_views.Timeline()
         view.request = SimpleNamespace(GET={})
@@ -1447,17 +1776,27 @@ class TestCoreViewsModule:
     def test_timeline_get_context_data_multiple_children(self, monkeypatch):
         # Timeline.get_context_data: calls _prepare_timeline_context_data
         fake_date = datetime.datetime(2026, 4, 15, 0, 0, tzinfo=datetime.timezone.utc)
-        monkeypatch.setattr(core_views.timezone, "localdate",
-                            lambda: datetime.date(2026, 4, 17))
-        monkeypatch.setattr(core_views.timezone, "datetime",
-                            SimpleNamespace(strptime=lambda v, f: datetime.datetime(2026, 4, 15, 0, 0)))
+        monkeypatch.setattr(
+            core_views.timezone, "localdate", lambda: datetime.date(2026, 4, 17)
+        )
+        monkeypatch.setattr(
+            core_views.timezone,
+            "datetime",
+            SimpleNamespace(strptime=lambda v, f: datetime.datetime(2026, 4, 15, 0, 0)),
+        )
         monkeypatch.setattr(core_views.timezone, "make_aware", lambda v: fake_date)
         monkeypatch.setattr(core_views.timezone, "localtime", lambda v: v)
-        monkeypatch.setattr(core_views.timeline, "get_objects", lambda date, child=None: [])
+        monkeypatch.setattr(
+            core_views.timeline, "get_objects", lambda date, child=None: []
+        )
 
         import django.views.generic.base as base_views
-        monkeypatch.setattr(base_views.TemplateView, "get_context_data",
-                            lambda self, **kw: {"object_list": []})
+
+        monkeypatch.setattr(
+            base_views.TemplateView,
+            "get_context_data",
+            lambda self, **kw: {"object_list": []},
+        )
 
         view = core_views.Timeline()
         view.request = SimpleNamespace(GET={"date": "2026-04-15"})
@@ -1472,29 +1811,43 @@ class TestCoreViewsModule:
     def test_prepare_timeline_context_data_date_key_exact(self, monkeypatch):
         # Kills mutant on "date" context key
         fake_date = datetime.datetime(2026, 4, 15, 0, 0, tzinfo=datetime.timezone.utc)
-        monkeypatch.setattr(core_views.timezone, "datetime",
-                            SimpleNamespace(strptime=lambda v, f: datetime.datetime(2026, 4, 15)))
+        monkeypatch.setattr(
+            core_views.timezone,
+            "datetime",
+            SimpleNamespace(strptime=lambda v, f: datetime.datetime(2026, 4, 15)),
+        )
         monkeypatch.setattr(core_views.timezone, "make_aware", lambda v: fake_date)
         monkeypatch.setattr(core_views.timezone, "localtime", lambda v: v)
-        monkeypatch.setattr(core_views.timezone, "localdate",
-                            lambda: datetime.date(2026, 4, 17))
-        monkeypatch.setattr(core_views.timeline, "get_objects", lambda date, child=None: ["evt"])
+        monkeypatch.setattr(
+            core_views.timezone, "localdate", lambda: datetime.date(2026, 4, 17)
+        )
+        monkeypatch.setattr(
+            core_views.timeline, "get_objects", lambda date, child=None: ["evt"]
+        )
         context = {}
         core_views._prepare_timeline_context_data(context, "2026-04-15")
         assert context["date"] is fake_date
         assert context["timeline_objects"] == ["evt"]
 
     ## Fix#4 - add more for mutation test
-    def test_prepare_timeline_context_data_previous_is_one_day_before(self, monkeypatch):
+    def test_prepare_timeline_context_data_previous_is_one_day_before(
+        self, monkeypatch
+    ):
         # Kills mutant on timedelta(days=1) subtraction
         fake_date = datetime.datetime(2026, 4, 15, 0, 0, tzinfo=datetime.timezone.utc)
-        monkeypatch.setattr(core_views.timezone, "datetime",
-                            SimpleNamespace(strptime=lambda v, f: datetime.datetime(2026, 4, 15)))
+        monkeypatch.setattr(
+            core_views.timezone,
+            "datetime",
+            SimpleNamespace(strptime=lambda v, f: datetime.datetime(2026, 4, 15)),
+        )
         monkeypatch.setattr(core_views.timezone, "make_aware", lambda v: fake_date)
         monkeypatch.setattr(core_views.timezone, "localtime", lambda v: v)
-        monkeypatch.setattr(core_views.timezone, "localdate",
-                            lambda: datetime.date(2026, 4, 17))
-        monkeypatch.setattr(core_views.timeline, "get_objects", lambda date, child=None: [])
+        monkeypatch.setattr(
+            core_views.timezone, "localdate", lambda: datetime.date(2026, 4, 17)
+        )
+        monkeypatch.setattr(
+            core_views.timeline, "get_objects", lambda date, child=None: []
+        )
         context = {}
         core_views._prepare_timeline_context_data(context, "2026-04-15")
         assert context["date_previous"] == fake_date - datetime.timedelta(days=1)
@@ -1504,13 +1857,19 @@ class TestCoreViewsModule:
     def test_prepare_timeline_context_data_next_is_one_day_after(self, monkeypatch):
         # Kills mutant on timedelta(days=1) addition
         fake_date = datetime.datetime(2026, 4, 15, 0, 0, tzinfo=datetime.timezone.utc)
-        monkeypatch.setattr(core_views.timezone, "datetime",
-                            SimpleNamespace(strptime=lambda v, f: datetime.datetime(2026, 4, 15)))
+        monkeypatch.setattr(
+            core_views.timezone,
+            "datetime",
+            SimpleNamespace(strptime=lambda v, f: datetime.datetime(2026, 4, 15)),
+        )
         monkeypatch.setattr(core_views.timezone, "make_aware", lambda v: fake_date)
         monkeypatch.setattr(core_views.timezone, "localtime", lambda v: v)
-        monkeypatch.setattr(core_views.timezone, "localdate",
-                            lambda: datetime.date(2026, 4, 17))
-        monkeypatch.setattr(core_views.timeline, "get_objects", lambda date, child=None: [])
+        monkeypatch.setattr(
+            core_views.timezone, "localdate", lambda: datetime.date(2026, 4, 17)
+        )
+        monkeypatch.setattr(
+            core_views.timeline, "get_objects", lambda date, child=None: []
+        )
         context = {}
         core_views._prepare_timeline_context_data(context, "2026-04-15")
         assert context["date_next"] == fake_date + datetime.timedelta(days=1)
@@ -1520,19 +1879,27 @@ class TestCoreViewsModule:
     def test_prepare_timeline_context_data_no_next_when_today(self, monkeypatch):
         # date == today → no date_next key
         fake_date = datetime.datetime(2026, 4, 15, 0, 0, tzinfo=datetime.timezone.utc)
-        monkeypatch.setattr(core_views.timezone, "datetime",
-                            SimpleNamespace(strptime=lambda v, f: datetime.datetime(2026, 4, 15)))
+        monkeypatch.setattr(
+            core_views.timezone,
+            "datetime",
+            SimpleNamespace(strptime=lambda v, f: datetime.datetime(2026, 4, 15)),
+        )
         monkeypatch.setattr(core_views.timezone, "make_aware", lambda v: fake_date)
         monkeypatch.setattr(core_views.timezone, "localtime", lambda v: v)
-        monkeypatch.setattr(core_views.timezone, "localdate",
-                            lambda: datetime.date(2026, 4, 15))
-        monkeypatch.setattr(core_views.timeline, "get_objects", lambda date, child=None: [])
+        monkeypatch.setattr(
+            core_views.timezone, "localdate", lambda: datetime.date(2026, 4, 15)
+        )
+        monkeypatch.setattr(
+            core_views.timeline, "get_objects", lambda date, child=None: []
+        )
         context = {}
         core_views._prepare_timeline_context_data(context, "2026-04-15")
         assert "date_next" not in context
 
     ## Fix#4 - add more for mutation test
-    def test_core_add_view_get_form_kwargs_child_not_forwarded_when_empty(self, monkeypatch):
+    def test_core_add_view_get_form_kwargs_child_not_forwarded_when_empty(
+        self, monkeypatch
+    ):
         # Kills mutant on truthy check for child/timer params
         monkeypatch.setattr(core_views.CreateView, "get_form_kwargs", lambda self: {})
 
@@ -1549,12 +1916,17 @@ class TestCoreViewsModule:
     def test_timeline_get_redirects_to_child_slug(self, monkeypatch):
         # Kills mutant on child.slug usage
         monkeypatch.setattr(core_views.models.Child.objects, "count", lambda: 1)
-        monkeypatch.setattr(core_views.models.Child.objects, "first",
-                            lambda: SimpleNamespace(slug="ava-doe"))
+        monkeypatch.setattr(
+            core_views.models.Child.objects,
+            "first",
+            lambda: SimpleNamespace(slug="ava-doe"),
+        )
         reversed_urls = []
+
         def fake_reverse(name, args=None):
             reversed_urls.append((name, args))
             return "/core/children/ava-doe/"
+
         monkeypatch.setattr(core_views, "reverse", fake_reverse)
 
         view = core_views.Timeline()
@@ -1567,16 +1939,22 @@ class TestCoreViewsModule:
     def test_timer_add_quick_post_url_from_get_next(self, monkeypatch):
         # Kills mutant on request.GET.get("next", ...) key
         created = [SimpleNamespace(id=55, child=None, save=Mock())]
-        monkeypatch.setattr(core_views.models.Timer.objects, "create",
-                            lambda user: created[0])
-        monkeypatch.setattr(core_views.models.Child.objects, "get",
-                            lambda pk: SimpleNamespace(pk=pk))
+        monkeypatch.setattr(
+            core_views.models.Timer.objects, "create", lambda user: created[0]
+        )
+        monkeypatch.setattr(
+            core_views.models.Child.objects, "get", lambda pk: SimpleNamespace(pk=pk)
+        )
         monkeypatch.setattr(core_views.models.Child, "count", lambda: 0)
         monkeypatch.setattr(core_views.models.Child.objects, "first", lambda: None)
-        monkeypatch.setattr(core_views, "reverse",
-                            lambda name, args=None, kwargs=None: f"/core/timers/55/")
-        monkeypatch.setattr(core_views.RedirectView, "get",
-                            lambda self, request, *a, **kw: self.url)
+        monkeypatch.setattr(
+            core_views,
+            "reverse",
+            lambda name, args=None, kwargs=None: f"/core/timers/55/",
+        )
+        monkeypatch.setattr(
+            core_views.RedirectView, "get", lambda self, request, *a, **kw: self.url
+        )
 
         view = core_views.TimerAddQuick()
         request = SimpleNamespace(user="u", POST={}, GET={"next": "/custom/url/"})
@@ -1595,10 +1973,14 @@ class TestCoreViewsModule:
 
         monkeypatch.setattr(core_views.models.Timer.objects, "get", fake_get)
         monkeypatch.setattr(core_views.messages, "success", lambda r, m: None)
-        monkeypatch.setattr(core_views.RedirectView, "get",
-                            lambda self, request, *a, **kw: "redirected")
-        monkeypatch.setattr(core_views, "reverse",
-                            lambda name, kwargs=None, args=None: f"/core/timers/{kwargs['pk']}/")
+        monkeypatch.setattr(
+            core_views.RedirectView, "get", lambda self, request, *a, **kw: "redirected"
+        )
+        monkeypatch.setattr(
+            core_views,
+            "reverse",
+            lambda name, kwargs=None, args=None: f"/core/timers/{kwargs['pk']}/",
+        )
 
         view = core_views.TimerRestart()
         view.post(SimpleNamespace(), pk=99)
@@ -1608,19 +1990,27 @@ class TestCoreViewsModule:
     ## Fix#4 - add more for mutation test
     def test_timer_restart_success_message_contains_timer_name(self, monkeypatch):
         class FakeTimer:
-            def restart(self): pass
-            def __str__(self): return "My Timer"
+            def restart(self):
+                pass
+
+            def __str__(self):
+                return "My Timer"
 
         timer = FakeTimer()
         timer.restart = Mock()
         monkeypatch.setattr(core_views.models.Timer.objects, "get", lambda id: timer)
         messages_sent = []
-        monkeypatch.setattr(core_views.messages, "success",
-                            lambda r, m: messages_sent.append(m))
-        monkeypatch.setattr(core_views.RedirectView, "get",
-                            lambda self, request, *a, **kw: "redirected")
-        monkeypatch.setattr(core_views, "reverse",
-                            lambda name, kwargs=None, args=None: "/core/timers/1/")
+        monkeypatch.setattr(
+            core_views.messages, "success", lambda r, m: messages_sent.append(m)
+        )
+        monkeypatch.setattr(
+            core_views.RedirectView, "get", lambda self, request, *a, **kw: "redirected"
+        )
+        monkeypatch.setattr(
+            core_views,
+            "reverse",
+            lambda name, kwargs=None, args=None: "/core/timers/1/",
+        )
 
         view = core_views.TimerRestart()
         view.post(SimpleNamespace(), pk=1)
@@ -1629,12 +2019,16 @@ class TestCoreViewsModule:
 
 
 class TestCoreTimelineModule:
-    def test_add_feedings_creates_start_and_end_events_for_duration_and_tracks_previous_feed(self, monkeypatch):
+    def test_add_feedings_creates_start_and_end_events_for_duration_and_tracks_previous_feed(
+        self, monkeypatch
+    ):
         # target file: core/timeline.py
         # function/method: _add_feedings
         # branch or behavior tested: prior-day feeding seeds time_since_prev and positive duration creates paired events
         min_date = datetime.datetime(2026, 4, 10, 0, 0, tzinfo=datetime.timezone.utc)
-        max_date = datetime.datetime(2026, 4, 10, 23, 59, 59, tzinfo=datetime.timezone.utc)
+        max_date = datetime.datetime(
+            2026, 4, 10, 23, 59, 59, tzinfo=datetime.timezone.utc
+        )
         child = SimpleNamespace(first_name="Ava")
 
         previous = SimpleNamespace(
@@ -1664,12 +2058,22 @@ class TestCoreTimelineModule:
         monkeypatch.setattr(
             core_timeline,
             "Feeding",
-            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: manager_qs.filter(**kwargs))),
+            SimpleNamespace(
+                objects=SimpleNamespace(
+                    filter=lambda **kwargs: manager_qs.filter(**kwargs)
+                )
+            ),
         )
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda value: value)
-        monkeypatch.setattr(core_timeline.timesince, "timesince", lambda start, now=None: "5 hours")
-        monkeypatch.setattr(core_timeline, "duration_string", lambda value: "20 minutes")
+        monkeypatch.setattr(
+            core_timeline.timesince, "timesince", lambda start, now=None: "5 hours"
+        )
+        monkeypatch.setattr(
+            core_timeline, "duration_string", lambda value: "20 minutes"
+        )
 
         events = []
         core_timeline._add_feedings(min_date, max_date, events, child=child)
@@ -1688,12 +2092,16 @@ class TestCoreTimelineModule:
         assert end_event["duration"] == "20 minutes"
         assert end_event["edit_link"] == "core:feeding-update:2"
 
-    def test_add_feedings_uses_single_event_for_zero_duration_and_handles_empty_notes(self, monkeypatch):
+    def test_add_feedings_uses_single_event_for_zero_duration_and_handles_empty_notes(
+        self, monkeypatch
+    ):
         # target file: core/timeline.py
         # function/method: _add_feedings
         # branch or behavior tested: zero-duration feed emits one event without duration field
         min_date = datetime.datetime(2026, 4, 10, 0, 0, tzinfo=datetime.timezone.utc)
-        max_date = datetime.datetime(2026, 4, 10, 23, 59, 59, tzinfo=datetime.timezone.utc)
+        max_date = datetime.datetime(
+            2026, 4, 10, 23, 59, 59, tzinfo=datetime.timezone.utc
+        )
         child = SimpleNamespace(first_name="Ava")
         current = SimpleNamespace(
             id=3,
@@ -1706,10 +2114,20 @@ class TestCoreTimelineModule:
             model_name="feeding",
             tags=SimpleNamespace(all=lambda: []),
         )
-        monkeypatch.setattr(core_timeline, "Feeding", SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([current]))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "Feeding",
+            SimpleNamespace(
+                objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([current]))
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda value: value)
-        monkeypatch.setattr(core_timeline.timesince, "timesince", lambda start, now=None: "unused")
+        monkeypatch.setattr(
+            core_timeline.timesince, "timesince", lambda start, now=None: "unused"
+        )
 
         events = []
         core_timeline._add_feedings(min_date, max_date, events)
@@ -1725,7 +2143,9 @@ class TestCoreTimelineModule:
         # function/method: _add_diaper_changes
         # branch or behavior tested: wet and solid flags contribute expected emoji sequence
         min_date = datetime.datetime(2026, 4, 10, 0, 0, tzinfo=datetime.timezone.utc)
-        max_date = datetime.datetime(2026, 4, 10, 23, 59, 59, tzinfo=datetime.timezone.utc)
+        max_date = datetime.datetime(
+            2026, 4, 10, 23, 59, 59, tzinfo=datetime.timezone.utc
+        )
         child = SimpleNamespace(first_name="Ava")
         change = SimpleNamespace(
             id=8,
@@ -1736,8 +2156,16 @@ class TestCoreTimelineModule:
             model_name="diaperchange",
             tags=SimpleNamespace(all=lambda: ["tag"]),
         )
-        monkeypatch.setattr(core_timeline, "DiaperChange", SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([change]))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "DiaperChange",
+            SimpleNamespace(
+                objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([change]))
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda value: value)
 
         events = []
@@ -1753,12 +2181,16 @@ class TestCoreTimelineModule:
             }
         ]
 
-    def test_add_sleeps_and_tummy_times_include_duration_only_when_positive(self, monkeypatch):
+    def test_add_sleeps_and_tummy_times_include_duration_only_when_positive(
+        self, monkeypatch
+    ):
         # target file: core/timeline.py
         # function/method: _add_sleeps / _add_tummy_times
         # branch or behavior tested: start/end events are emitted and duration is omitted for zero-length records
         min_date = datetime.datetime(2026, 4, 10, 0, 0, tzinfo=datetime.timezone.utc)
-        max_date = datetime.datetime(2026, 4, 10, 23, 59, 59, tzinfo=datetime.timezone.utc)
+        max_date = datetime.datetime(
+            2026, 4, 10, 23, 59, 59, tzinfo=datetime.timezone.utc
+        )
         child = SimpleNamespace(first_name="Ava")
         sleep = SimpleNamespace(
             id=4,
@@ -1780,9 +2212,23 @@ class TestCoreTimelineModule:
             model_name="tummytime",
             tags=SimpleNamespace(all=lambda: []),
         )
-        monkeypatch.setattr(core_timeline, "Sleep", SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([sleep]))))
-        monkeypatch.setattr(core_timeline, "TummyTime", SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([tummy]))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "Sleep",
+            SimpleNamespace(
+                objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([sleep]))
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline,
+            "TummyTime",
+            SimpleNamespace(
+                objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([tummy]))
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda value: value)
         monkeypatch.setattr(core_timeline, "duration_string", lambda value: "1 hour")
 
@@ -1798,12 +2244,16 @@ class TestCoreTimelineModule:
         assert tummy_events[0]["details"] == ["rolled over"]
         assert "duration" not in tummy_events[1]
 
-    def test_add_notes_and_temperature_measurements_include_details_conditionally(self, monkeypatch):
+    def test_add_notes_and_temperature_measurements_include_details_conditionally(
+        self, monkeypatch
+    ):
         # target file: core/timeline.py
         # function/method: _add_notes / _add_temperature_measurements
         # branch or behavior tested: notes always populate details while temperature details depend on notes/value presence
         min_date = datetime.datetime(2026, 4, 10, 0, 0, tzinfo=datetime.timezone.utc)
-        max_date = datetime.datetime(2026, 4, 10, 23, 59, 59, tzinfo=datetime.timezone.utc)
+        max_date = datetime.datetime(
+            2026, 4, 10, 23, 59, 59, tzinfo=datetime.timezone.utc
+        )
         child = SimpleNamespace(first_name="Ava")
         note = SimpleNamespace(
             id=6,
@@ -1822,9 +2272,23 @@ class TestCoreTimelineModule:
             model_name="temperature",
             tags=SimpleNamespace(all=lambda: []),
         )
-        monkeypatch.setattr(core_timeline, "Note", SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([note]))))
-        monkeypatch.setattr(core_timeline, "Temperature", SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([temp]))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "Note",
+            SimpleNamespace(
+                objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([note]))
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline,
+            "Temperature",
+            SimpleNamespace(
+                objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([temp]))
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda value: value)
 
         note_events = []
@@ -1833,7 +2297,9 @@ class TestCoreTimelineModule:
         assert note_events[0]["tags"] == ["important"]
 
         temp_events = []
-        core_timeline._add_temperature_measurements(min_date, max_date, temp_events, child=child)
+        core_timeline._add_temperature_measurements(
+            min_date, max_date, temp_events, child=child
+        )
         assert temp_events[0]["details"] == ["after nap", "Temperature: 101.5"]
         assert temp_events[0]["event"] == "Ava had a temperature measurement."
 
@@ -1850,15 +2316,40 @@ class TestCoreTimelineModule:
                 if event_type is not None:
                     payload["type"] = event_type
                 events.append(payload)
+
             return inner
 
         base = datetime.datetime(2026, 4, 10, 0, 0, tzinfo=datetime.timezone.utc)
-        monkeypatch.setattr(core_timeline, "_add_diaper_changes", add_named("diaper", base + datetime.timedelta(hours=1)))
-        monkeypatch.setattr(core_timeline, "_add_feedings", add_named("feeding-start", base + datetime.timedelta(hours=2), "start"))
-        monkeypatch.setattr(core_timeline, "_add_sleeps", add_named("sleep-end", base + datetime.timedelta(hours=2), "end"))
-        monkeypatch.setattr(core_timeline, "_add_tummy_times", add_named("tummy", base + datetime.timedelta(hours=3)))
-        monkeypatch.setattr(core_timeline, "_add_notes", add_named("note", base + datetime.timedelta(hours=4)))
-        monkeypatch.setattr(core_timeline, "_add_temperature_measurements", add_named("temp", base + datetime.timedelta(hours=5)))
+        monkeypatch.setattr(
+            core_timeline,
+            "_add_diaper_changes",
+            add_named("diaper", base + datetime.timedelta(hours=1)),
+        )
+        monkeypatch.setattr(
+            core_timeline,
+            "_add_feedings",
+            add_named("feeding-start", base + datetime.timedelta(hours=2), "start"),
+        )
+        monkeypatch.setattr(
+            core_timeline,
+            "_add_sleeps",
+            add_named("sleep-end", base + datetime.timedelta(hours=2), "end"),
+        )
+        monkeypatch.setattr(
+            core_timeline,
+            "_add_tummy_times",
+            add_named("tummy", base + datetime.timedelta(hours=3)),
+        )
+        monkeypatch.setattr(
+            core_timeline,
+            "_add_notes",
+            add_named("note", base + datetime.timedelta(hours=4)),
+        )
+        monkeypatch.setattr(
+            core_timeline,
+            "_add_temperature_measurements",
+            add_named("temp", base + datetime.timedelta(hours=5)),
+        )
 
         events = core_timeline.get_objects(base, child="kid")
 
@@ -1871,7 +2362,14 @@ class TestCoreTimelineModule:
             "temp",
         ]
         assert all(item[3] == "kid" for item in call_order)
-        assert [event["event"] for event in events] == ["temp", "note", "tummy", "sleep-end", "feeding-start", "diaper"]
+        assert [event["event"] for event in events] == [
+            "temp",
+            "note",
+            "tummy",
+            "sleep-end",
+            "feeding-start",
+            "diaper",
+        ]
 
     ## Fix#1
     def test_add_feedings_no_child_filter_includes_all_children(self, monkeypatch):
@@ -1881,19 +2379,31 @@ class TestCoreTimelineModule:
         child_a = SimpleNamespace(first_name="Ava")
         child_b = SimpleNamespace(first_name="Ben")
         feeding = SimpleNamespace(
-            id=1, child=child_a,
+            id=1,
+            child=child_a,
             start=min_date + datetime.timedelta(hours=1),
             end=min_date + datetime.timedelta(hours=1),
             duration=datetime.timedelta(0),
-            notes="", amount=None, model_name="feeding",
+            notes="",
+            amount=None,
+            model_name="feeding",
             tags=SimpleNamespace(all=lambda: []),
         )
         qs = FakeQuerySet([feeding])
-        monkeypatch.setattr(core_timeline, "Feeding",
-                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: qs.filter(**kwargs))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "Feeding",
+            SimpleNamespace(
+                objects=SimpleNamespace(filter=lambda **kwargs: qs.filter(**kwargs))
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
-        monkeypatch.setattr(core_timeline.timesince, "timesince", lambda s, now=None: "")
+        monkeypatch.setattr(
+            core_timeline.timesince, "timesince", lambda s, now=None: ""
+        )
 
         events = []
         core_timeline._add_feedings(min_date, max_date, events, child=None)
@@ -1907,16 +2417,27 @@ class TestCoreTimelineModule:
         max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
         child = SimpleNamespace(first_name="Ava")
         sleep = SimpleNamespace(
-            id=1, child=child,
+            id=1,
+            child=child,
             start=min_date + datetime.timedelta(hours=1),
             end=min_date + datetime.timedelta(hours=2),
             duration=datetime.timedelta(hours=1),
-            notes="", model_name="sleep",
+            notes="",
+            model_name="sleep",
             tags=SimpleNamespace(all=lambda: []),
         )
-        monkeypatch.setattr(core_timeline, "Sleep",
-                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([sleep]).filter(**kwargs))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "Sleep",
+            SimpleNamespace(
+                objects=SimpleNamespace(
+                    filter=lambda **kwargs: FakeQuerySet([sleep]).filter(**kwargs)
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
         monkeypatch.setattr(core_timeline, "duration_string", lambda v: "1 hour")
 
@@ -1931,16 +2452,27 @@ class TestCoreTimelineModule:
         max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
         child = SimpleNamespace(first_name="Ava")
         tummy = SimpleNamespace(
-            id=1, child=child,
+            id=1,
+            child=child,
             start=min_date + datetime.timedelta(hours=1),
             end=min_date + datetime.timedelta(hours=1, minutes=5),
             duration=datetime.timedelta(minutes=5),
-            milestone="", model_name="tummytime",
+            milestone="",
+            model_name="tummytime",
             tags=SimpleNamespace(all=lambda: []),
         )
-        monkeypatch.setattr(core_timeline, "TummyTime",
-                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([tummy]).filter(**kwargs))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "TummyTime",
+            SimpleNamespace(
+                objects=SimpleNamespace(
+                    filter=lambda **kwargs: FakeQuerySet([tummy]).filter(**kwargs)
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
         monkeypatch.setattr(core_timeline, "duration_string", lambda v: "5 minutes")
 
@@ -1956,16 +2488,27 @@ class TestCoreTimelineModule:
         max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
         child = SimpleNamespace(first_name="Ava")
         sleep = SimpleNamespace(
-            id=2, child=child,
+            id=2,
+            child=child,
             start=min_date + datetime.timedelta(hours=1),
             end=min_date + datetime.timedelta(hours=2),
             duration=datetime.timedelta(hours=1),
-            notes="", model_name="sleep",
+            notes="",
+            model_name="sleep",
             tags=SimpleNamespace(all=lambda: []),
         )
-        monkeypatch.setattr(core_timeline, "Sleep",
-                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([sleep]).filter(**kwargs))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "Sleep",
+            SimpleNamespace(
+                objects=SimpleNamespace(
+                    filter=lambda **kwargs: FakeQuerySet([sleep]).filter(**kwargs)
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
         monkeypatch.setattr(core_timeline, "duration_string", lambda v: "1 hour")
 
@@ -1980,19 +2523,32 @@ class TestCoreTimelineModule:
         max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
         child = SimpleNamespace(first_name="Ava")
         temp = SimpleNamespace(
-            id=1, child=child,
+            id=1,
+            child=child,
             time=min_date + datetime.timedelta(hours=1),
-            notes="", temperature=None,
+            notes="",
+            temperature=None,
             model_name="temperature",
             tags=SimpleNamespace(all=lambda: []),
         )
-        monkeypatch.setattr(core_timeline, "Temperature",
-                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([temp]).filter(**kwargs))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "Temperature",
+            SimpleNamespace(
+                objects=SimpleNamespace(
+                    filter=lambda **kwargs: FakeQuerySet([temp]).filter(**kwargs)
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
 
         events = []
-        core_timeline._add_temperature_measurements(min_date, max_date, events, child=child)
+        core_timeline._add_temperature_measurements(
+            min_date, max_date, events, child=child
+        )
         assert events[0]["details"] == []
 
     ## Fix#1
@@ -2002,15 +2558,26 @@ class TestCoreTimelineModule:
         max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
         child = SimpleNamespace(first_name="Ava")
         change = SimpleNamespace(
-            id=1, child=child,
+            id=1,
+            child=child,
             time=min_date + datetime.timedelta(hours=1),
-            wet=True, solid=False,
+            wet=True,
+            solid=False,
             model_name="diaperchange",
             tags=SimpleNamespace(all=lambda: []),
         )
-        monkeypatch.setattr(core_timeline, "DiaperChange",
-                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kwargs: FakeQuerySet([change]).filter(**kwargs))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "DiaperChange",
+            SimpleNamespace(
+                objects=SimpleNamespace(
+                    filter=lambda **kwargs: FakeQuerySet([change]).filter(**kwargs)
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
 
         events = []
@@ -2027,8 +2594,14 @@ class TestCoreTimelineModule:
         def fake_add(min_date, max_date, events, child=None):
             captured["max"] = max_date
 
-        for attr in ["_add_diaper_changes", "_add_feedings", "_add_sleeps",
-                     "_add_tummy_times", "_add_notes", "_add_temperature_measurements"]:
+        for attr in [
+            "_add_diaper_changes",
+            "_add_feedings",
+            "_add_sleeps",
+            "_add_tummy_times",
+            "_add_notes",
+            "_add_temperature_measurements",
+        ]:
             monkeypatch.setattr(core_timeline, attr, fake_add)
 
         core_timeline.get_objects(base)
@@ -2043,11 +2616,13 @@ class TestCoreTimelineModule:
         max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
         child = SimpleNamespace(first_name="Ava")
         tummy = SimpleNamespace(
-            id=1, child=child,
+            id=1,
+            child=child,
             start=min_date + datetime.timedelta(hours=1),
             end=min_date + datetime.timedelta(hours=1, minutes=5),
             duration=datetime.timedelta(minutes=5),
-            milestone="rolled over", model_name="tummytime",
+            milestone="rolled over",
+            model_name="tummytime",
             tags=SimpleNamespace(all=lambda: []),
         )
         qs = FakeQuerySet([tummy])
@@ -2057,11 +2632,19 @@ class TestCoreTimelineModule:
         def tracking_filter(**kwargs):
             filter_calls.append(kwargs)
             return orig_filter(**kwargs)
+
         qs.filter = tracking_filter
 
-        monkeypatch.setattr(core_timeline, "TummyTime",
-                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kw: qs.filter(**kw))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "TummyTime",
+            SimpleNamespace(
+                objects=SimpleNamespace(filter=lambda **kw: qs.filter(**kw))
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
         monkeypatch.setattr(core_timeline, "duration_string", lambda v: "5 minutes")
 
@@ -2076,14 +2659,26 @@ class TestCoreTimelineModule:
         max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
         child = SimpleNamespace(first_name="Ava")
         change = SimpleNamespace(
-            id=1, child=child,
+            id=1,
+            child=child,
             time=min_date + datetime.timedelta(hours=1),
-            wet=True, solid=False, model_name="diaperchange",
+            wet=True,
+            solid=False,
+            model_name="diaperchange",
             tags=SimpleNamespace(all=lambda: []),
         )
-        monkeypatch.setattr(core_timeline, "DiaperChange",
-                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kw: FakeQuerySet([change]).filter(**kw))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "DiaperChange",
+            SimpleNamespace(
+                objects=SimpleNamespace(
+                    filter=lambda **kw: FakeQuerySet([change]).filter(**kw)
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
 
         events = []
@@ -2097,14 +2692,25 @@ class TestCoreTimelineModule:
         max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
         child = SimpleNamespace(first_name="Ava")
         note = SimpleNamespace(
-            id=1, child=child,
+            id=1,
+            child=child,
             time=min_date + datetime.timedelta(hours=1),
-            note="test note", model_name="note",
+            note="test note",
+            model_name="note",
             tags=SimpleNamespace(all=lambda: []),
         )
-        monkeypatch.setattr(core_timeline, "Note",
-                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kw: FakeQuerySet([note]).filter(**kw))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "Note",
+            SimpleNamespace(
+                objects=SimpleNamespace(
+                    filter=lambda **kw: FakeQuerySet([note]).filter(**kw)
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
 
         events = []
@@ -2118,18 +2724,32 @@ class TestCoreTimelineModule:
         max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
         child = SimpleNamespace(first_name="Ava")
         temp = SimpleNamespace(
-            id=1, child=child,
+            id=1,
+            child=child,
             time=min_date + datetime.timedelta(hours=1),
-            notes="", temperature=98.6, model_name="temperature",
+            notes="",
+            temperature=98.6,
+            model_name="temperature",
             tags=SimpleNamespace(all=lambda: []),
         )
-        monkeypatch.setattr(core_timeline, "Temperature",
-                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kw: FakeQuerySet([temp]).filter(**kw))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "Temperature",
+            SimpleNamespace(
+                objects=SimpleNamespace(
+                    filter=lambda **kw: FakeQuerySet([temp]).filter(**kw)
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
 
         events = []
-        core_timeline._add_temperature_measurements(min_date, max_date, events, child=None)
+        core_timeline._add_temperature_measurements(
+            min_date, max_date, events, child=None
+        )
         assert len(events) == 1
 
     ## Fix#2
@@ -2139,18 +2759,32 @@ class TestCoreTimelineModule:
         max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
         child = SimpleNamespace(first_name="Ava")
         feeding = SimpleNamespace(
-            id=1, child=child,
+            id=1,
+            child=child,
             start=min_date + datetime.timedelta(hours=2),
             end=min_date + datetime.timedelta(hours=2),
             duration=datetime.timedelta(0),
-            notes="", amount=None, model_name="feeding",
+            notes="",
+            amount=None,
+            model_name="feeding",
             tags=SimpleNamespace(all=lambda: []),
         )
-        monkeypatch.setattr(core_timeline, "Feeding",
-                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kw: FakeQuerySet([feeding]).filter(**kw))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "Feeding",
+            SimpleNamespace(
+                objects=SimpleNamespace(
+                    filter=lambda **kw: FakeQuerySet([feeding]).filter(**kw)
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
-        monkeypatch.setattr(core_timeline.timesince, "timesince", lambda s, now=None: "")
+        monkeypatch.setattr(
+            core_timeline.timesince, "timesince", lambda s, now=None: ""
+        )
 
         events = []
         core_timeline._add_feedings(min_date, max_date, events, child=None)
@@ -2163,16 +2797,27 @@ class TestCoreTimelineModule:
         max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
         child = SimpleNamespace(first_name="Ava")
         sleep = SimpleNamespace(
-            id=1, child=child,
+            id=1,
+            child=child,
             start=min_date + datetime.timedelta(hours=1),
             end=min_date + datetime.timedelta(hours=2),
             duration=datetime.timedelta(hours=1),
-            notes="deep sleep", model_name="sleep",
+            notes="deep sleep",
+            model_name="sleep",
             tags=SimpleNamespace(all=lambda: []),
         )
-        monkeypatch.setattr(core_timeline, "Sleep",
-                            SimpleNamespace(objects=SimpleNamespace(filter=lambda **kw: FakeQuerySet([sleep]).filter(**kw))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "Sleep",
+            SimpleNamespace(
+                objects=SimpleNamespace(
+                    filter=lambda **kw: FakeQuerySet([sleep]).filter(**kw)
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
         monkeypatch.setattr(core_timeline, "duration_string", lambda v: "1 hour")
 
@@ -2188,17 +2833,28 @@ class TestCoreTimelineModule:
         max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
         child = SimpleNamespace(first_name="Ava")
         tummy = SimpleNamespace(
-            id=1, child=child,
+            id=1,
+            child=child,
             start=min_date + datetime.timedelta(hours=1),
-            end=min_date + datetime.timedelta(hours=1),  # same start/end → zero duration
+            end=min_date
+            + datetime.timedelta(hours=1),  # same start/end → zero duration
             duration=datetime.timedelta(0),
-            milestone="", model_name="tummytime",
+            milestone="",
+            model_name="tummytime",
             tags=SimpleNamespace(all=lambda: []),
         )
-        monkeypatch.setattr(core_timeline, "TummyTime",
-                            SimpleNamespace(objects=SimpleNamespace(
-                                filter=lambda **kw: FakeQuerySet([tummy]).filter(**kw))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "TummyTime",
+            SimpleNamespace(
+                objects=SimpleNamespace(
+                    filter=lambda **kw: FakeQuerySet([tummy]).filter(**kw)
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
 
         events = []
@@ -2213,16 +2869,26 @@ class TestCoreTimelineModule:
         max_date = datetime.datetime(2026, 4, 10, 23, 59, tzinfo=datetime.timezone.utc)
         child = SimpleNamespace(first_name="Ava")
         change = SimpleNamespace(
-            id=1, child=child,
+            id=1,
+            child=child,
             time=min_date + datetime.timedelta(hours=1),
-            wet=False, solid=False,  # both False → empty contents
+            wet=False,
+            solid=False,  # both False → empty contents
             model_name="diaperchange",
             tags=SimpleNamespace(all=lambda: []),
         )
-        monkeypatch.setattr(core_timeline, "DiaperChange",
-                            SimpleNamespace(objects=SimpleNamespace(
-                                filter=lambda **kw: FakeQuerySet([change]).filter(**kw))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "DiaperChange",
+            SimpleNamespace(
+                objects=SimpleNamespace(
+                    filter=lambda **kw: FakeQuerySet([change]).filter(**kw)
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
 
         events = []
@@ -2250,10 +2916,19 @@ class TestCoreTimelineModule:
             events.append({"time": same_time, "event": "end", "type": "end"})
             events.append({"time": same_time, "event": "start", "type": "start"})
 
-        for attr in ["_add_diaper_changes", "_add_feedings", "_add_sleeps",
-                     "_add_tummy_times", "_add_notes", "_add_temperature_measurements"]:
-            monkeypatch.setattr(core_timeline, attr,
-                                add_two if attr == "_add_sleeps" else lambda *a, **kw: None)
+        for attr in [
+            "_add_diaper_changes",
+            "_add_feedings",
+            "_add_sleeps",
+            "_add_tummy_times",
+            "_add_notes",
+            "_add_temperature_measurements",
+        ]:
+            monkeypatch.setattr(
+                core_timeline,
+                attr,
+                add_two if attr == "_add_sleeps" else lambda *a, **kw: None,
+            )
 
         events = core_timeline.get_objects(base)
         # "end" type has ordering 1, "start" has 0 — sorted descending → "end" comes first
@@ -2265,13 +2940,24 @@ class TestCoreTimelineModule:
         base = datetime.datetime(2026, 4, 10, 0, 0, tzinfo=datetime.timezone.utc)
 
         def add_two(min_date, max_date, events, child=None):
-            events.append({"time": base + datetime.timedelta(hours=1), "event": "early"})
+            events.append(
+                {"time": base + datetime.timedelta(hours=1), "event": "early"}
+            )
             events.append({"time": base + datetime.timedelta(hours=3), "event": "late"})
 
-        for attr in ["_add_diaper_changes", "_add_feedings", "_add_sleeps",
-                     "_add_tummy_times", "_add_notes", "_add_temperature_measurements"]:
-            monkeypatch.setattr(core_timeline, attr,
-                                add_two if attr == "_add_notes" else lambda *a, **kw: None)
+        for attr in [
+            "_add_diaper_changes",
+            "_add_feedings",
+            "_add_sleeps",
+            "_add_tummy_times",
+            "_add_notes",
+            "_add_temperature_measurements",
+        ]:
+            monkeypatch.setattr(
+                core_timeline,
+                attr,
+                add_two if attr == "_add_notes" else lambda *a, **kw: None,
+            )
 
         events = core_timeline.get_objects(base)
         assert events[0]["event"] == "late"
@@ -2283,17 +2969,27 @@ class TestCoreTimelineModule:
         min_date, max_date = self._make_min_max()
         child = self._make_child()
         tummy = SimpleNamespace(
-            id=5, child=child,
+            id=5,
+            child=child,
             start=min_date + datetime.timedelta(hours=1),
             end=min_date + datetime.timedelta(hours=1, minutes=5),
             duration=datetime.timedelta(minutes=5),
-            milestone="rolled over", model_name="tummytime",
+            milestone="rolled over",
+            model_name="tummytime",
             tags=SimpleNamespace(all=lambda: ["tag1"]),
         )
-        monkeypatch.setattr(core_timeline, "TummyTime",
-                            SimpleNamespace(objects=SimpleNamespace(
-                                filter=lambda **kw: FakeQuerySet([tummy]).filter(**kw))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "TummyTime",
+            SimpleNamespace(
+                objects=SimpleNamespace(
+                    filter=lambda **kw: FakeQuerySet([tummy]).filter(**kw)
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
         monkeypatch.setattr(core_timeline, "duration_string", lambda v: "5 minutes")
 
@@ -2312,17 +3008,27 @@ class TestCoreTimelineModule:
         min_date, max_date = self._make_min_max()
         child = self._make_child()
         tummy = SimpleNamespace(
-            id=5, child=child,
+            id=5,
+            child=child,
             start=min_date + datetime.timedelta(hours=1),
             end=min_date + datetime.timedelta(hours=1, minutes=5),
             duration=datetime.timedelta(minutes=5),
-            milestone="", model_name="tummytime",
+            milestone="",
+            model_name="tummytime",
             tags=SimpleNamespace(all=lambda: []),
         )
-        monkeypatch.setattr(core_timeline, "TummyTime",
-                            SimpleNamespace(objects=SimpleNamespace(
-                                filter=lambda **kw: FakeQuerySet([tummy]).filter(**kw))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "TummyTime",
+            SimpleNamespace(
+                objects=SimpleNamespace(
+                    filter=lambda **kw: FakeQuerySet([tummy]).filter(**kw)
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
         monkeypatch.setattr(core_timeline, "duration_string", lambda v: "5 minutes")
 
@@ -2339,17 +3045,27 @@ class TestCoreTimelineModule:
         min_date, max_date = self._make_min_max()
         child = self._make_child()
         sleep = SimpleNamespace(
-            id=3, child=child,
+            id=3,
+            child=child,
             start=min_date + datetime.timedelta(hours=2),
             end=min_date + datetime.timedelta(hours=3),
             duration=datetime.timedelta(hours=1),
-            notes="", model_name="sleep",
+            notes="",
+            model_name="sleep",
             tags=SimpleNamespace(all=lambda: []),
         )
-        monkeypatch.setattr(core_timeline, "Sleep",
-                            SimpleNamespace(objects=SimpleNamespace(
-                                filter=lambda **kw: FakeQuerySet([sleep]).filter(**kw))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "Sleep",
+            SimpleNamespace(
+                objects=SimpleNamespace(
+                    filter=lambda **kw: FakeQuerySet([sleep]).filter(**kw)
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
         monkeypatch.setattr(core_timeline, "duration_string", lambda v: "1 hour")
 
@@ -2366,17 +3082,27 @@ class TestCoreTimelineModule:
         min_date, max_date = self._make_min_max()
         child = self._make_child()
         sleep = SimpleNamespace(
-            id=3, child=child,
+            id=3,
+            child=child,
             start=min_date + datetime.timedelta(hours=2),
             end=min_date + datetime.timedelta(hours=3),
             duration=datetime.timedelta(hours=1),
-            notes="", model_name="sleep",
+            notes="",
+            model_name="sleep",
             tags=SimpleNamespace(all=lambda: []),
         )
-        monkeypatch.setattr(core_timeline, "Sleep",
-                            SimpleNamespace(objects=SimpleNamespace(
-                                filter=lambda **kw: FakeQuerySet([sleep]).filter(**kw))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "Sleep",
+            SimpleNamespace(
+                objects=SimpleNamespace(
+                    filter=lambda **kw: FakeQuerySet([sleep]).filter(**kw)
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
         monkeypatch.setattr(core_timeline, "duration_string", lambda v: "1 hour")
 
@@ -2393,19 +3119,32 @@ class TestCoreTimelineModule:
         min_date, max_date = self._make_min_max()
         child = self._make_child()
         feeding = SimpleNamespace(
-            id=1, child=child,
+            id=1,
+            child=child,
             start=min_date + datetime.timedelta(hours=2),
             end=min_date + datetime.timedelta(hours=2, minutes=20),
             duration=datetime.timedelta(minutes=20),
-            notes="", amount=None, model_name="feeding",
+            notes="",
+            amount=None,
+            model_name="feeding",
             tags=SimpleNamespace(all=lambda: []),
         )
-        monkeypatch.setattr(core_timeline, "Feeding",
-                            SimpleNamespace(objects=SimpleNamespace(
-                                filter=lambda **kw: FakeQuerySet([feeding]).filter(**kw))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "Feeding",
+            SimpleNamespace(
+                objects=SimpleNamespace(
+                    filter=lambda **kw: FakeQuerySet([feeding]).filter(**kw)
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
-        monkeypatch.setattr(core_timeline.timesince, "timesince", lambda s, now=None: "2 hours")
+        monkeypatch.setattr(
+            core_timeline.timesince, "timesince", lambda s, now=None: "2 hours"
+        )
         monkeypatch.setattr(core_timeline, "duration_string", lambda v: "20 minutes")
 
         events = []
@@ -2421,19 +3160,32 @@ class TestCoreTimelineModule:
         min_date, max_date = self._make_min_max()
         child = self._make_child()
         feeding = SimpleNamespace(
-            id=1, child=child,
+            id=1,
+            child=child,
             start=min_date + datetime.timedelta(hours=2),
             end=min_date + datetime.timedelta(hours=2),
             duration=datetime.timedelta(0),
-            notes="", amount=150, model_name="feeding",
+            notes="",
+            amount=150,
+            model_name="feeding",
             tags=SimpleNamespace(all=lambda: []),
         )
-        monkeypatch.setattr(core_timeline, "Feeding",
-                            SimpleNamespace(objects=SimpleNamespace(
-                                filter=lambda **kw: FakeQuerySet([feeding]).filter(**kw))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "Feeding",
+            SimpleNamespace(
+                objects=SimpleNamespace(
+                    filter=lambda **kw: FakeQuerySet([feeding]).filter(**kw)
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
-        monkeypatch.setattr(core_timeline.timesince, "timesince", lambda s, now=None: "")
+        monkeypatch.setattr(
+            core_timeline.timesince, "timesince", lambda s, now=None: ""
+        )
 
         events = []
         core_timeline._add_feedings(min_date, max_date, events, child=child)
@@ -2445,28 +3197,43 @@ class TestCoreTimelineModule:
         min_date, max_date = self._make_min_max()
         child = self._make_child()
         f1 = SimpleNamespace(
-            id=1, child=child,
+            id=1,
+            child=child,
             start=min_date + datetime.timedelta(hours=1),
             end=min_date + datetime.timedelta(hours=1),
             duration=datetime.timedelta(0),
-            notes="", amount=None, model_name="feeding",
+            notes="",
+            amount=None,
+            model_name="feeding",
             tags=SimpleNamespace(all=lambda: []),
         )
         f2 = SimpleNamespace(
-            id=2, child=child,
+            id=2,
+            child=child,
             start=min_date + datetime.timedelta(hours=3),
             end=min_date + datetime.timedelta(hours=3),
             duration=datetime.timedelta(0),
-            notes="", amount=None, model_name="feeding",
+            notes="",
+            amount=None,
+            model_name="feeding",
             tags=SimpleNamespace(all=lambda: []),
         )
-        monkeypatch.setattr(core_timeline, "Feeding",
-                            SimpleNamespace(objects=SimpleNamespace(
-                                filter=lambda **kw: FakeQuerySet([f1, f2]).filter(**kw))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "Feeding",
+            SimpleNamespace(
+                objects=SimpleNamespace(
+                    filter=lambda **kw: FakeQuerySet([f1, f2]).filter(**kw)
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
-        monkeypatch.setattr(core_timeline.timesince, "timesince",
-                            lambda s, now=None: "2 hours")
+        monkeypatch.setattr(
+            core_timeline.timesince, "timesince", lambda s, now=None: "2 hours"
+        )
 
         events = []
         core_timeline._add_feedings(min_date, max_date, events, child=child)
@@ -2481,15 +3248,25 @@ class TestCoreTimelineModule:
         min_date, max_date = self._make_min_max()
         child = self._make_child()
         note = SimpleNamespace(
-            id=7, child=child,
+            id=7,
+            child=child,
             time=min_date + datetime.timedelta(hours=5),
-            note="test note", model_name="note",
+            note="test note",
+            model_name="note",
             tags=SimpleNamespace(all=lambda: ["imp"]),
         )
-        monkeypatch.setattr(core_timeline, "Note",
-                            SimpleNamespace(objects=SimpleNamespace(
-                                filter=lambda **kw: FakeQuerySet([note]).filter(**kw))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "Note",
+            SimpleNamespace(
+                objects=SimpleNamespace(
+                    filter=lambda **kw: FakeQuerySet([note]).filter(**kw)
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
 
         events = []
@@ -2506,20 +3283,32 @@ class TestCoreTimelineModule:
         min_date, max_date = self._make_min_max()
         child = self._make_child()
         temp = SimpleNamespace(
-            id=8, child=child,
+            id=8,
+            child=child,
             time=min_date + datetime.timedelta(hours=6),
-            notes="after nap", temperature=101.5,
+            notes="after nap",
+            temperature=101.5,
             model_name="temperature",
             tags=SimpleNamespace(all=lambda: []),
         )
-        monkeypatch.setattr(core_timeline, "Temperature",
-                            SimpleNamespace(objects=SimpleNamespace(
-                                filter=lambda **kw: FakeQuerySet([temp]).filter(**kw))))
-        monkeypatch.setattr(core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}")
+        monkeypatch.setattr(
+            core_timeline,
+            "Temperature",
+            SimpleNamespace(
+                objects=SimpleNamespace(
+                    filter=lambda **kw: FakeQuerySet([temp]).filter(**kw)
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            core_timeline, "reverse", lambda name, args=None: f"{name}:{args[0]}"
+        )
         monkeypatch.setattr(core_timeline.timezone, "localtime", lambda v: v)
 
         events = []
-        core_timeline._add_temperature_measurements(min_date, max_date, events, child=child)
+        core_timeline._add_temperature_measurements(
+            min_date, max_date, events, child=child
+        )
         evt = events[0]
         assert "temperature measurement" in evt["event"]
         assert "Ava" in evt["event"]
@@ -2528,6 +3317,7 @@ class TestCoreTimelineModule:
         assert "after nap" in evt["details"]
         assert any("101.5" in d for d in evt["details"])
 
+
 class TestCoreModelsModule:
     """Targets: core/models.py"""
 
@@ -2535,7 +3325,10 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_validate_date_future_date_raises(self, monkeypatch):
         from core.models import validate_date
-        monkeypatch.setattr("core.models.timezone.localdate", lambda: datetime.date(2026, 4, 15))
+
+        monkeypatch.setattr(
+            "core.models.timezone.localdate", lambda: datetime.date(2026, 4, 15)
+        )
         with pytest.raises(ValidationError) as exc:
             validate_date(datetime.date(2026, 4, 16), "date")
         assert "date" in exc.value.message_dict
@@ -2543,20 +3336,25 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_validate_date_past_date_passes(self, monkeypatch):
         from core.models import validate_date
-        monkeypatch.setattr("core.models.timezone.localdate",
-                            lambda: datetime.date(2026, 4, 15))
+
+        monkeypatch.setattr(
+            "core.models.timezone.localdate", lambda: datetime.date(2026, 4, 15)
+        )
         validate_date(datetime.date(2026, 4, 14), "date")  # no exception
 
     ## Fix#1
     def test_validate_date_none_passes(self, monkeypatch):
         from core.models import validate_date
-        monkeypatch.setattr("core.models.timezone.localdate",
-                            lambda: datetime.date(2026, 4, 15))
+
+        monkeypatch.setattr(
+            "core.models.timezone.localdate", lambda: datetime.date(2026, 4, 15)
+        )
         validate_date(None, "date")  # no exception
 
     ## Fix#1
     def test_validate_date_today_passes(self, monkeypatch):
         from core.models import validate_date
+
         today = datetime.date(2026, 4, 15)
         monkeypatch.setattr("core.models.timezone.localdate", lambda: today)
         validate_date(today, "date")  # today is not in the future
@@ -2564,7 +3362,10 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_validate_date_error_uses_field_name_as_key(self, monkeypatch):
         from core.models import validate_date
-        monkeypatch.setattr("core.models.timezone.localdate", lambda: datetime.date(2026, 4, 15))
+
+        monkeypatch.setattr(
+            "core.models.timezone.localdate", lambda: datetime.date(2026, 4, 15)
+        )
         with pytest.raises(ValidationError) as exc:
             validate_date(datetime.date(2026, 4, 16), "my_field")
         assert "my_field" in exc.value.message_dict
@@ -2573,6 +3374,7 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_validate_time_future_time_raises(self, monkeypatch):
         from core.models import validate_time
+
         utc = datetime.timezone.utc
         now = datetime.datetime(2026, 4, 15, 10, 0, tzinfo=utc)
         future = datetime.datetime(2026, 4, 15, 11, 0, tzinfo=utc)
@@ -2584,6 +3386,7 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_validate_time_past_time_passes(self, monkeypatch):
         from core.models import validate_time
+
         utc = datetime.timezone.utc
         now = datetime.datetime(2026, 4, 15, 10, 0, tzinfo=utc)
         past = datetime.datetime(2026, 4, 15, 9, 0, tzinfo=utc)
@@ -2593,11 +3396,13 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_validate_time_none_passes(self, monkeypatch):
         from core.models import validate_time
+
         validate_time(None, "time")  # no exception
 
     ## Fix#1
     def test_validate_time_error_uses_field_name(self, monkeypatch):
         from core.models import validate_time
+
         utc = datetime.timezone.utc
         now = datetime.datetime(2026, 4, 15, 10, 0, tzinfo=utc)
         future = datetime.datetime(2026, 4, 15, 11, 0, tzinfo=utc)
@@ -2610,6 +3415,7 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_validate_duration_end_before_start_raises(self):
         from core.models import validate_duration
+
         utc = datetime.timezone.utc
         model = SimpleNamespace(
             start=datetime.datetime(2026, 4, 15, 10, 0, tzinfo=utc),
@@ -2622,6 +3428,7 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_validate_duration_exceeds_max_raises(self):
         from core.models import validate_duration
+
         utc = datetime.timezone.utc
         model = SimpleNamespace(
             start=datetime.datetime(2026, 4, 15, 0, 0, tzinfo=utc),
@@ -2634,6 +3441,7 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_validate_duration_valid_passes(self):
         from core.models import validate_duration
+
         utc = datetime.timezone.utc
         model = SimpleNamespace(
             start=datetime.datetime(2026, 4, 15, 8, 0, tzinfo=utc),
@@ -2644,12 +3452,14 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_validate_duration_none_start_skips(self):
         from core.models import validate_duration
+
         model = SimpleNamespace(start=None, end=datetime.datetime(2026, 4, 15, 9, 0))
         validate_duration(model)  # no exception
 
     ## Fix#1
     def test_validate_duration_custom_max(self):
         from core.models import validate_duration
+
         utc = datetime.timezone.utc
         model = SimpleNamespace(
             start=datetime.datetime(2026, 4, 15, 8, 0, tzinfo=utc),
@@ -2664,6 +3474,7 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_validate_unique_period_no_conflict_passes(self, monkeypatch):
         from core.models import validate_unique_period
+
         utc = datetime.timezone.utc
         model = SimpleNamespace(
             id=None,
@@ -2676,6 +3487,7 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_validate_unique_period_with_conflict_raises(self, monkeypatch):
         from core.models import validate_unique_period, _format_dt
+
         utc = datetime.timezone.utc
         conflicting = SimpleNamespace(
             id=99,
@@ -2687,8 +3499,10 @@ class TestCoreModelsModule:
         class ConflictingQS:
             def exclude(self, **kwargs):
                 return self
+
             def filter(self, **kwargs):
                 return self
+
             def first(self):
                 return conflicting
 
@@ -2697,10 +3511,13 @@ class TestCoreModelsModule:
             start=datetime.datetime(2026, 4, 15, 8, 0, tzinfo=utc),
             end=datetime.datetime(2026, 4, 15, 9, 0, tzinfo=utc),
         )
-        monkeypatch.setattr("core.models.reverse",
-                            lambda name, args=None: f"/core/sleep/{args[0]}/edit/")
-        monkeypatch.setattr("core.models.formats.date_format",
-                            lambda v, format: "formatted")
+        monkeypatch.setattr(
+            "core.models.reverse",
+            lambda name, args=None: f"/core/sleep/{args[0]}/edit/",
+        )
+        monkeypatch.setattr(
+            "core.models.formats.date_format", lambda v, format: "formatted"
+        )
         monkeypatch.setattr("core.models.timezone.localtime", lambda v: v)
 
         with pytest.raises(ValidationError) as exc:
@@ -2710,6 +3527,7 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_validate_unique_period_excludes_self_when_id_set(self, monkeypatch):
         from core.models import validate_unique_period
+
         utc = datetime.timezone.utc
         excluded = []
 
@@ -2717,6 +3535,7 @@ class TestCoreModelsModule:
             def exclude(self, **kwargs):
                 excluded.append(kwargs)
                 return FakeQuerySet([])
+
             def filter(self, **kwargs):
                 return FakeQuerySet([])
 
@@ -2731,6 +3550,7 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_validate_unique_period_no_id_does_not_exclude(self, monkeypatch):
         from core.models import validate_unique_period
+
         utc = datetime.timezone.utc
         excluded = []
 
@@ -2738,6 +3558,7 @@ class TestCoreModelsModule:
             def exclude(self, **kwargs):
                 excluded.append(kwargs)
                 return FakeQuerySet([])
+
             def filter(self, **kwargs):
                 return FakeQuerySet([])
 
@@ -2753,6 +3574,7 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_tag_complementary_color_light_color_returns_dark(self, monkeypatch):
         from core.models import Tag
+
         tag = object.__new__(Tag)
         tag.__dict__["color"] = "#FFFFFF"  # white → YIQ high → DARK
         assert tag.complementary_color == Tag.DARK_COLOR
@@ -2760,6 +3582,7 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_tag_complementary_color_dark_color_returns_light(self, monkeypatch):
         from core.models import Tag
+
         tag = object.__new__(Tag)
         tag.__dict__["color"] = "#000000"  # black → YIQ low → LIGHT
         assert tag.complementary_color == Tag.LIGHT_COLOR
@@ -2767,6 +3590,7 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_tag_complementary_color_no_color_returns_dark(self, monkeypatch):
         from core.models import Tag
+
         tag = object.__new__(Tag)
         tag.__dict__["color"] = ""
         assert tag.complementary_color == Tag.DARK_COLOR
@@ -2774,6 +3598,7 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_tag_complementary_color_yiq_boundary_128_returns_dark(self):
         from core.models import Tag
+
         # Craft a color where YIQ == 128 → DARK_COLOR
         # YIQ = (r*299 + g*587 + b*114) // 1000 = 128
         # Use r=0, g=0, b=1122 (not valid)... use approximate: #808080 gray
@@ -2786,6 +3611,7 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_child_name_no_last_name_returns_first_only(self):
         from core.models import Child
+
         child = object.__new__(Child)
         child.__dict__.update({"first_name": "Alice", "last_name": ""})
         assert child.name() == "Alice"
@@ -2793,6 +3619,7 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_child_name_with_last_name_returns_full_name(self):
         from core.models import Child
+
         child = object.__new__(Child)
         child.__dict__.update({"first_name": "Alice", "last_name": "Doe"})
         assert child.name() == "Alice Doe"
@@ -2800,6 +3627,7 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_child_name_reverse_true_returns_last_first(self):
         from core.models import Child
+
         child = object.__new__(Child)
         child.__dict__.update({"first_name": "Alice", "last_name": "Doe"})
         assert child.name(reverse=True) == "Doe, Alice"
@@ -2808,11 +3636,14 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_child_birth_datetime_with_time(self, monkeypatch):
         from core.models import Child
+
         child = object.__new__(Child)
-        child.__dict__.update({
-            "birth_date": datetime.date(2020, 1, 1),
-            "birth_time": datetime.time(8, 30),
-        })
+        child.__dict__.update(
+            {
+                "birth_date": datetime.date(2020, 1, 1),
+                "birth_time": datetime.time(8, 30),
+            }
+        )
         aware = datetime.datetime(2020, 1, 1, 8, 30, tzinfo=datetime.timezone.utc)
         monkeypatch.setattr("core.models.timezone.make_aware", lambda v: aware)
         assert child.birth_datetime() == aware
@@ -2820,17 +3651,21 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_child_birth_datetime_without_time_returns_date(self):
         from core.models import Child
+
         child = object.__new__(Child)
-        child.__dict__.update({
-            "birth_date": datetime.date(2020, 1, 1),
-            "birth_time": None,
-        })
+        child.__dict__.update(
+            {
+                "birth_date": datetime.date(2020, 1, 1),
+                "birth_time": None,
+            }
+        )
         assert child.birth_datetime() == datetime.date(2020, 1, 1)
 
     # --- Timer.__str__ ---
     ## Fix#1
     def test_timer_str_with_name(self, monkeypatch):
         from core.models import Timer
+
         timer = object.__new__(Timer)
         timer.__dict__["name"] = "Nap Timer"
         timer.__dict__["id"] = 1
@@ -2839,6 +3674,7 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_timer_str_without_name_uses_id(self, monkeypatch):
         from core.models import Timer
+
         timer = object.__new__(Timer)
         timer.__dict__["name"] = None
         timer.__dict__["id"] = 7
@@ -2867,6 +3703,7 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_timer_title_with_child_single_child_no_append(self, monkeypatch):
         from core.models import Timer, Child
+
         timer = object.__new__(Timer)
         timer._state = SimpleNamespace(db="default", adding=False, fields_cache={})
         timer.__dict__["name"] = "Feeding"
@@ -2880,6 +3717,7 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_timer_title_no_child(self, monkeypatch):
         from core.models import Timer, Child
+
         timer = object.__new__(Timer)
         timer._state = SimpleNamespace(db="default", adding=False, fields_cache={})
         timer.__dict__["name"] = "Feeding"
@@ -2893,15 +3731,19 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_timer_user_username_prefers_full_name(self, monkeypatch):
         from core.models import Timer
+
         timer = object.__new__(Timer)
         timer._state = SimpleNamespace(db="default", adding=False, fields_cache={})
-        user = SimpleNamespace(get_full_name=lambda: "Alice Doe", get_username=lambda: "alice")
+        user = SimpleNamespace(
+            get_full_name=lambda: "Alice Doe", get_username=lambda: "alice"
+        )
         monkeypatch.setattr(Timer, "user", property(lambda self: user))
         assert timer.user_username == "Alice Doe"
 
     ## Fix#1
     def test_timer_user_username_falls_back_to_username(self, monkeypatch):
         from core.models import Timer
+
         timer = object.__new__(Timer)
         timer._state = SimpleNamespace(db="default", adding=False, fields_cache={})
         user = SimpleNamespace(get_full_name=lambda: "", get_username=lambda: "alice")
@@ -2912,20 +3754,26 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_timer_save_empty_name_coerced_to_none(self, monkeypatch):
         from core.models import Timer
+
         timer = object.__new__(Timer)
         timer.__dict__["name"] = ""
         saved = []
         import django.db.models as djmodels
-        monkeypatch.setattr(djmodels.Model, "save", lambda self, *a, **kw: saved.append(True))
+
+        monkeypatch.setattr(
+            djmodels.Model, "save", lambda self, *a, **kw: saved.append(True)
+        )
         Timer.save(timer)
         assert timer.name is None
 
     ## Fix#1
     def test_timer_save_existing_name_preserved(self, monkeypatch):
         from core.models import Timer
+
         timer = object.__new__(Timer)
         timer.__dict__["name"] = "My Timer"
         import django.db.models as djmodels
+
         monkeypatch.setattr(djmodels.Model, "save", lambda self, *a, **kw: None)
         Timer.save(timer)
         assert timer.name == "My Timer"
@@ -2934,16 +3782,19 @@ class TestCoreModelsModule:
     ## Fix#1
     def test_weight_percentile_str_contains_all_fields(self):
         from core.models import WeightPercentile
+
         wp = object.__new__(WeightPercentile)
-        wp.__dict__.update({
-            "sex": "girl",
-            "age_in_days": datetime.timedelta(days=100),
-            "p3_weight": 3.5,
-            "p15_weight": 4.0,
-            "p50_weight": 5.0,
-            "p85_weight": 6.0,
-            "p97_weight": 7.0,
-        })
+        wp.__dict__.update(
+            {
+                "sex": "girl",
+                "age_in_days": datetime.timedelta(days=100),
+                "p3_weight": 3.5,
+                "p15_weight": 4.0,
+                "p50_weight": 5.0,
+                "p85_weight": 6.0,
+                "p97_weight": 7.0,
+            }
+        )
         result = str(wp)
         assert "girl" in result
         assert "3.5" in result
@@ -2953,66 +3804,77 @@ class TestCoreModelsModule:
     ## Fix#2
     def test_bmi_str(self):
         from core.models import BMI
+
         obj = object.__new__(BMI)
         assert "BMI" in str(obj)
 
     ## Fix#2
     def test_diaper_change_str(self):
         from core.models import DiaperChange
+
         obj = object.__new__(DiaperChange)
         assert "Diaper" in str(obj)
 
     ## Fix#2
     def test_feeding_str(self):
         from core.models import Feeding
+
         obj = object.__new__(Feeding)
         assert "Feeding" in str(obj)
 
     ## Fix#2
     def test_head_circumference_str(self):
         from core.models import HeadCircumference
+
         obj = object.__new__(HeadCircumference)
         assert "Head" in str(obj)
 
     ## Fix#2
     def test_height_str(self):
         from core.models import Height
+
         obj = object.__new__(Height)
         assert "Height" in str(obj)
 
     ## Fix#2
     def test_note_str(self):
         from core.models import Note
+
         obj = object.__new__(Note)
         assert "Note" in str(obj)
 
     ## Fix#2
     def test_pumping_str(self):
         from core.models import Pumping
+
         obj = object.__new__(Pumping)
         assert "Pumping" in str(obj)
 
     ## Fix#2
     def test_sleep_str(self):
         from core.models import Sleep
+
         obj = object.__new__(Sleep)
         assert "Sleep" in str(obj)
 
     ## Fix#2
     def test_temperature_str(self):
         from core.models import Temperature
+
         obj = object.__new__(Temperature)
         assert "Temperature" in str(obj)
 
     ## Fix#2
     def test_tummy_time_str(self):
         from core.models import TummyTime
+
         obj = object.__new__(TummyTime)
         assert "Tummy" in str(obj)
 
     ## Fix#2
     def test_weight_str(self):
         from core.models import Weight
+
         obj = object.__new__(Weight)
         assert "Weight" in str(obj)
 
@@ -3020,14 +3882,20 @@ class TestCoreModelsModule:
     ## Fix#2
     def test_diaper_change_attributes_wet_solid_and_color(self, monkeypatch):
         from core.models import DiaperChange
+
         obj = object.__new__(DiaperChange)
         obj._state = SimpleNamespace(db="default", adding=False, fields_cache={})
         obj.__dict__.update({"wet": True, "solid": True, "color": "yellow"})
 
         wet_field = SimpleNamespace(verbose_name="Wet")
         solid_field = SimpleNamespace(verbose_name="Solid")
-        monkeypatch.setattr(DiaperChange, "_meta",
-                            SimpleNamespace(get_field=lambda name: wet_field if name == "wet" else solid_field))
+        monkeypatch.setattr(
+            DiaperChange,
+            "_meta",
+            SimpleNamespace(
+                get_field=lambda name: wet_field if name == "wet" else solid_field
+            ),
+        )
         monkeypatch.setattr(DiaperChange, "get_color_display", lambda self: "Yellow")
 
         result = obj.attributes()
@@ -3038,10 +3906,13 @@ class TestCoreModelsModule:
     ## Fix#2
     def test_diaper_change_attributes_empty(self, monkeypatch):
         from core.models import DiaperChange
+
         obj = object.__new__(DiaperChange)
         obj._state = SimpleNamespace(db="default", adding=False, fields_cache={})
         obj.__dict__.update({"wet": False, "solid": False, "color": ""})
-        monkeypatch.setattr(DiaperChange, "_meta", SimpleNamespace(get_field=lambda name: None))
+        monkeypatch.setattr(
+            DiaperChange, "_meta", SimpleNamespace(get_field=lambda name: None)
+        )
         result = obj.attributes()
         assert result == []
 
@@ -3049,6 +3920,7 @@ class TestCoreModelsModule:
     ## Fix#2
     def test_timer_duration_returns_elapsed_time(self, monkeypatch):
         from core.models import Timer
+
         timer = object.__new__(Timer)
         timer._state = SimpleNamespace(db="default", adding=False, fields_cache={})
         utc = datetime.timezone.utc
@@ -3063,18 +3935,28 @@ class TestCoreModelsModule:
     ## Fix#2
     def test_sleep_save_infers_nap_true_when_within_window(self, monkeypatch):
         from core.models import Sleep
+
         utc = datetime.timezone.utc
-        start = datetime.datetime(2026, 4, 15, 12, 0, tzinfo=utc)  # noon — within 9-17 window
+        start = datetime.datetime(
+            2026, 4, 15, 12, 0, tzinfo=utc
+        )  # noon — within 9-17 window
 
         sleep = object.__new__(Sleep)
         sleep._state = SimpleNamespace(db="default", adding=False, fields_cache={})
         sleep.__dict__.update({"nap": None, "start": start, "end": start})
 
-        monkeypatch.setattr("core.models.Sleep.settings",
-                            SimpleNamespace(nap_start_min=datetime.time(9), nap_start_max=datetime.time(17)))
+        monkeypatch.setattr(
+            "core.models.Sleep.settings",
+            SimpleNamespace(
+                nap_start_min=datetime.time(9), nap_start_max=datetime.time(17)
+            ),
+        )
         monkeypatch.setattr("core.models.timezone.localtime", lambda v: v)
-        monkeypatch.setattr("core.models.timezone_aware_duration", lambda s, e: datetime.timedelta(0))
+        monkeypatch.setattr(
+            "core.models.timezone_aware_duration", lambda s, e: datetime.timedelta(0)
+        )
         import django.db.models as djmodels
+
         monkeypatch.setattr(djmodels.Model, "save", lambda self, *a, **kw: None)
 
         Sleep.save(sleep)
@@ -3083,18 +3965,28 @@ class TestCoreModelsModule:
     ## Fix#2
     def test_sleep_save_infers_nap_false_when_outside_window(self, monkeypatch):
         from core.models import Sleep
+
         utc = datetime.timezone.utc
-        start = datetime.datetime(2026, 4, 15, 6, 0, tzinfo=utc)  # 6am — before 9am window
+        start = datetime.datetime(
+            2026, 4, 15, 6, 0, tzinfo=utc
+        )  # 6am — before 9am window
 
         sleep = object.__new__(Sleep)
         sleep._state = SimpleNamespace(db="default", adding=False, fields_cache={})
         sleep.__dict__.update({"nap": None, "start": start, "end": start})
 
-        monkeypatch.setattr("core.models.Sleep.settings",
-                            SimpleNamespace(nap_start_min=datetime.time(9), nap_start_max=datetime.time(17)))
+        monkeypatch.setattr(
+            "core.models.Sleep.settings",
+            SimpleNamespace(
+                nap_start_min=datetime.time(9), nap_start_max=datetime.time(17)
+            ),
+        )
         monkeypatch.setattr("core.models.timezone.localtime", lambda v: v)
-        monkeypatch.setattr("core.models.timezone_aware_duration", lambda s, e: datetime.timedelta(0))
+        monkeypatch.setattr(
+            "core.models.timezone_aware_duration", lambda s, e: datetime.timedelta(0)
+        )
         import django.db.models as djmodels
+
         monkeypatch.setattr(djmodels.Model, "save", lambda self, *a, **kw: None)
 
         Sleep.save(sleep)
@@ -3103,15 +3995,21 @@ class TestCoreModelsModule:
     ## Fix#2
     def test_sleep_save_preserves_explicit_nap_value(self, monkeypatch):
         from core.models import Sleep
+
         utc = datetime.timezone.utc
         start = datetime.datetime(2026, 4, 15, 12, 0, tzinfo=utc)
 
         sleep = object.__new__(Sleep)
         sleep._state = SimpleNamespace(db="default", adding=False, fields_cache={})
-        sleep.__dict__.update({"nap": False, "start": start, "end": start})  # explicit False
+        sleep.__dict__.update(
+            {"nap": False, "start": start, "end": start}
+        )  # explicit False
 
-        monkeypatch.setattr("core.models.timezone_aware_duration", lambda s, e: datetime.timedelta(0))
+        monkeypatch.setattr(
+            "core.models.timezone_aware_duration", lambda s, e: datetime.timedelta(0)
+        )
         import django.db.models as djmodels
+
         monkeypatch.setattr(djmodels.Model, "save", lambda self, *a, **kw: None)
 
         Sleep.save(sleep)
@@ -3125,10 +4023,13 @@ class TestCoreModelsModule:
         class TrackingQS:
             def exclude(self, **kwargs):
                 return self
+
             def filter(self, **kwargs):
                 raise AssertionError("filter should not be called")
 
-        model = SimpleNamespace(id=None, start=None, end=datetime.datetime(2026, 4, 15, 9, 0))
+        model = SimpleNamespace(
+            id=None, start=None, end=datetime.datetime(2026, 4, 15, 9, 0)
+        )
         validate_unique_period(TrackingQS(), model)  # no exception, no filter call
 
     ## Fix#3
@@ -3139,12 +4040,13 @@ class TestCoreModelsModule:
         class TrackingQS:
             def exclude(self, **kwargs):
                 return self
+
             def filter(self, **kwargs):
                 raise AssertionError("filter should not be called")
 
-        model = SimpleNamespace(id=None,
-                                start=datetime.datetime(2026, 4, 15, 8, 0),
-                                end=None)
+        model = SimpleNamespace(
+            id=None, start=datetime.datetime(2026, 4, 15, 8, 0), end=None
+        )
         validate_unique_period(TrackingQS(), model)  # no exception
 
     ## Fix#3
@@ -3158,8 +4060,10 @@ class TestCoreModelsModule:
         sleep.__dict__.update({"nap": True, "start": None, "end": None})
 
         duration_called = []
-        monkeypatch.setattr("core.models.timezone_aware_duration",
-                            lambda s, e: duration_called.append(True) or datetime.timedelta(0))
+        monkeypatch.setattr(
+            "core.models.timezone_aware_duration",
+            lambda s, e: duration_called.append(True) or datetime.timedelta(0),
+        )
         monkeypatch.setattr(djmodels.Model, "save", lambda self, *a, **kw: None)
 
         Sleep.save(sleep)
@@ -3169,7 +4073,10 @@ class TestCoreModelsModule:
     ## Fix#4 - add more for mutation test
     def test_validate_date_error_code_is_date_invalid(self, monkeypatch):
         from core.models import validate_date
-        monkeypatch.setattr("core.models.timezone.localdate", lambda: datetime.date(2026, 4, 15))
+
+        monkeypatch.setattr(
+            "core.models.timezone.localdate", lambda: datetime.date(2026, 4, 15)
+        )
         with pytest.raises(ValidationError) as exc:
             validate_date(datetime.date(2026, 4, 16), "date")
         assert "date" in exc.value.message_dict
@@ -3177,7 +4084,10 @@ class TestCoreModelsModule:
     ## Fix#4 - add more for mutation test
     def test_validate_date_error_message_contains_future_text(self, monkeypatch):
         from core.models import validate_date
-        monkeypatch.setattr("core.models.timezone.localdate", lambda: datetime.date(2026, 4, 15))
+
+        monkeypatch.setattr(
+            "core.models.timezone.localdate", lambda: datetime.date(2026, 4, 15)
+        )
         with pytest.raises(ValidationError) as exc:
             validate_date(datetime.date(2026, 4, 16), "date")
         msg = str(exc.value.message_dict["date"][0])
@@ -3186,6 +4096,7 @@ class TestCoreModelsModule:
     ## Fix#4 - add more for mutation test
     def test_validate_date_boundary_equal_today_does_not_raise(self, monkeypatch):
         from core.models import validate_date
+
         today = datetime.date(2026, 4, 15)
         monkeypatch.setattr("core.models.timezone.localdate", lambda: today)
         validate_date(today, "date")  # today is NOT in the future — > not >=
@@ -3193,7 +4104,10 @@ class TestCoreModelsModule:
     ## Fix#4 - add more for mutation test
     def test_validate_date_field_name_used_as_dict_key(self, monkeypatch):
         from core.models import validate_date
-        monkeypatch.setattr("core.models.timezone.localdate", lambda: datetime.date(2026, 4, 15))
+
+        monkeypatch.setattr(
+            "core.models.timezone.localdate", lambda: datetime.date(2026, 4, 15)
+        )
         with pytest.raises(ValidationError) as exc:
             validate_date(datetime.date(2026, 4, 16), "birth_date")
         assert "birth_date" in exc.value.message_dict
@@ -3203,6 +4117,7 @@ class TestCoreModelsModule:
     ## Fix#4 - add more for mutation test
     def test_validate_time_error_field_name_as_dict_key(self, monkeypatch):
         from core.models import validate_time
+
         utc = datetime.timezone.utc
         now = datetime.datetime(2026, 4, 15, 10, 0, tzinfo=utc)
         monkeypatch.setattr("core.models.timezone.localtime", lambda: now)
@@ -3213,6 +4128,7 @@ class TestCoreModelsModule:
     ## Fix#4 - add more for mutation test
     def test_validate_time_error_message_contains_future_text(self, monkeypatch):
         from core.models import validate_time
+
         utc = datetime.timezone.utc
         now = datetime.datetime(2026, 4, 15, 10, 0, tzinfo=utc)
         monkeypatch.setattr("core.models.timezone.localtime", lambda: now)
@@ -3224,6 +4140,7 @@ class TestCoreModelsModule:
     ## Fix#4 - add more for mutation test
     def test_validate_time_exact_now_does_not_raise(self, monkeypatch):
         from core.models import validate_time
+
         utc = datetime.timezone.utc
         now = datetime.datetime(2026, 4, 15, 10, 0, tzinfo=utc)
         monkeypatch.setattr("core.models.timezone.localtime", lambda: now)
@@ -3233,6 +4150,7 @@ class TestCoreModelsModule:
     ## Fix#4 - add more for mutation test
     def test_validate_duration_end_before_start_code(self):
         from core.models import validate_duration
+
         utc = datetime.timezone.utc
         model = SimpleNamespace(
             start=datetime.datetime(2026, 4, 15, 10, 0, tzinfo=utc),
@@ -3245,6 +4163,7 @@ class TestCoreModelsModule:
     ## Fix#4 - add more for mutation test
     def test_validate_duration_max_exceeded_code(self):
         from core.models import validate_duration
+
         utc = datetime.timezone.utc
         model = SimpleNamespace(
             start=datetime.datetime(2026, 4, 15, 0, 0, tzinfo=utc),
@@ -3257,6 +4176,7 @@ class TestCoreModelsModule:
     ## Fix#4 - add more for mutation test
     def test_validate_duration_exact_24h_does_not_raise(self):
         from core.models import validate_duration
+
         utc = datetime.timezone.utc
         model = SimpleNamespace(
             start=datetime.datetime(2026, 4, 15, 0, 0, tzinfo=utc),
@@ -3268,12 +4188,13 @@ class TestCoreModelsModule:
     def test_validate_duration_utc_conversion(self):
         # Kills mutant that drops .astimezone(utc) — DST-aware test
         from core.models import validate_duration
+
         plus1 = datetime.timezone(datetime.timedelta(hours=1))
         minus1 = datetime.timezone(datetime.timedelta(hours=-1))
         # start in +1, end in -1: naive diff would be 0h, UTC diff is 2h
         model = SimpleNamespace(
-            start=datetime.datetime(2026, 4, 15, 10, 0, tzinfo=plus1),   # 09:00 UTC
-            end=datetime.datetime(2026, 4, 15, 10, 0, tzinfo=minus1),    # 11:00 UTC
+            start=datetime.datetime(2026, 4, 15, 10, 0, tzinfo=plus1),  # 09:00 UTC
+            end=datetime.datetime(2026, 4, 15, 10, 0, tzinfo=minus1),  # 11:00 UTC
         )
         validate_duration(model)  # 2 hours — no exception
 
@@ -3281,12 +4202,14 @@ class TestCoreModelsModule:
     ## Fix#4 - add more for mutation test
     def test_validate_unique_period_filter_args_exact(self, monkeypatch):
         from core.models import validate_unique_period
+
         utc = datetime.timezone.utc
         filter_kwargs = []
 
         class TrackingQS:
             def exclude(self, **kw):
                 return self
+
             def filter(self, **kw):
                 filter_kwargs.append(kw)
                 return FakeQuerySet([])
@@ -3305,27 +4228,38 @@ class TestCoreModelsModule:
     ## Fix#4 - add more for mutation test
     def test_validate_unique_period_conflict_code_exact(self, monkeypatch):
         from core.models import validate_unique_period
+
         utc = datetime.timezone.utc
         conflicting = SimpleNamespace(
-            id=1, model_name="sleep",
+            id=1,
+            model_name="sleep",
             start=datetime.datetime(2026, 4, 15, 8, 30, tzinfo=utc),
             end=datetime.datetime(2026, 4, 15, 9, 30, tzinfo=utc),
             __str__=lambda self: "Sleep entry",
         )
 
         class ConflictQS:
-            def exclude(self, **kw): return self
-            def filter(self, **kw): return self
-            def first(self): return conflicting
+            def exclude(self, **kw):
+                return self
+
+            def filter(self, **kw):
+                return self
+
+            def first(self):
+                return conflicting
 
         model = SimpleNamespace(
             id=1,
             start=datetime.datetime(2026, 4, 15, 8, 0, tzinfo=utc),
             end=datetime.datetime(2026, 4, 15, 9, 0, tzinfo=utc),
         )
-        monkeypatch.setattr("core.models.reverse",
-                            lambda name, args=None: f"/core/sleep/{args[0]}/edit/")
-        monkeypatch.setattr("core.models.formats.date_format", lambda v, format: "Apr 15")
+        monkeypatch.setattr(
+            "core.models.reverse",
+            lambda name, args=None: f"/core/sleep/{args[0]}/edit/",
+        )
+        monkeypatch.setattr(
+            "core.models.formats.date_format", lambda v, format: "Apr 15"
+        )
         monkeypatch.setattr("core.models.timezone.localtime", lambda v: v)
 
         with pytest.raises(ValidationError) as exc:
@@ -3335,9 +4269,11 @@ class TestCoreModelsModule:
     ## Fix#4 - add more for mutation test
     def test_validate_unique_period_link_uses_model_name_and_id(self, monkeypatch):
         from core.models import validate_unique_period
+
         utc = datetime.timezone.utc
         conflicting = SimpleNamespace(
-            id=42, model_name="feeding",
+            id=42,
+            model_name="feeding",
             start=datetime.datetime(2026, 4, 15, 8, 30, tzinfo=utc),
             end=datetime.datetime(2026, 4, 15, 9, 30, tzinfo=utc),
             __str__=lambda self: "Feeding entry",
@@ -3345,9 +4281,14 @@ class TestCoreModelsModule:
         reverse_calls = []
 
         class ConflictQS:
-            def exclude(self, **kw): return self
-            def filter(self, **kw): return self
-            def first(self): return conflicting
+            def exclude(self, **kw):
+                return self
+
+            def filter(self, **kw):
+                return self
+
+            def first(self):
+                return conflicting
 
         model = SimpleNamespace(
             id=None,
@@ -3360,7 +4301,9 @@ class TestCoreModelsModule:
             return f"/core/feeding/42/edit/"
 
         monkeypatch.setattr("core.models.reverse", fake_reverse)
-        monkeypatch.setattr("core.models.formats.date_format", lambda v, format: "Apr 15")
+        monkeypatch.setattr(
+            "core.models.formats.date_format", lambda v, format: "Apr 15"
+        )
         monkeypatch.setattr("core.models.timezone.localtime", lambda v: v)
 
         with pytest.raises(ValidationError):
@@ -3373,12 +4316,14 @@ class TestCoreModelsModule:
     ## Fix#4 - add more for mutation test
     def test_bmi_str_exact(self):
         from core.models import BMI
+
         obj = object.__new__(BMI)
         assert str(obj) == str(BMI.__str__(obj))
 
     ## Fix#4 - add more for mutation test
     def test_child_str_uses_name_method(self):
         from core.models import Child
+
         child = object.__new__(Child)
         child.__dict__.update({"first_name": "Alice", "last_name": "Doe"})
         assert str(child) == "Alice Doe"
@@ -3386,6 +4331,7 @@ class TestCoreModelsModule:
     ## Fix#4 - add more for mutation test
     def test_child_name_exact_with_last_name(self):
         from core.models import Child
+
         child = object.__new__(Child)
         child.__dict__.update({"first_name": "Alice", "last_name": "Doe"})
         assert child.name() == "Alice Doe"
@@ -3394,11 +4340,14 @@ class TestCoreModelsModule:
     ## Fix#4 - add more for mutation test
     def test_child_birth_datetime_combine_exact(self, monkeypatch):
         from core.models import Child
+
         child = object.__new__(Child)
-        child.__dict__.update({
-            "birth_date": datetime.date(2020, 6, 15),
-            "birth_time": datetime.time(8, 30),
-        })
+        child.__dict__.update(
+            {
+                "birth_date": datetime.date(2020, 6, 15),
+                "birth_time": datetime.time(8, 30),
+            }
+        )
         expected = datetime.datetime(2020, 6, 15, 8, 30, tzinfo=datetime.timezone.utc)
         monkeypatch.setattr("core.models.timezone.make_aware", lambda v: expected)
         assert child.birth_datetime() == expected
@@ -3408,18 +4357,23 @@ class TestCoreModelsModule:
     def test_sleep_save_nap_at_min_boundary_is_true(self, monkeypatch):
         from core.models import Sleep
         import django.db.models as djmodels
+
         utc = datetime.timezone.utc
         # start time == nap_start_min → should be nap (>= not >)
         start = datetime.datetime(2026, 4, 15, 9, 0, tzinfo=utc)
         sleep = object.__new__(Sleep)
         sleep._state = SimpleNamespace(db="default", adding=False, fields_cache={})
         sleep.__dict__.update({"nap": None, "start": start, "end": start})
-        monkeypatch.setattr("core.models.Sleep.settings",
-                            SimpleNamespace(nap_start_min=datetime.time(9, 0),
-                                            nap_start_max=datetime.time(17, 0)))
+        monkeypatch.setattr(
+            "core.models.Sleep.settings",
+            SimpleNamespace(
+                nap_start_min=datetime.time(9, 0), nap_start_max=datetime.time(17, 0)
+            ),
+        )
         monkeypatch.setattr("core.models.timezone.localtime", lambda v: v)
-        monkeypatch.setattr("core.models.timezone_aware_duration",
-                            lambda s, e: datetime.timedelta(0))
+        monkeypatch.setattr(
+            "core.models.timezone_aware_duration", lambda s, e: datetime.timedelta(0)
+        )
         monkeypatch.setattr(djmodels.Model, "save", lambda self, *a, **kw: None)
         Sleep.save(sleep)
         assert sleep.nap is True
@@ -3428,18 +4382,23 @@ class TestCoreModelsModule:
     def test_sleep_save_nap_at_max_boundary_is_true(self, monkeypatch):
         from core.models import Sleep
         import django.db.models as djmodels
+
         utc = datetime.timezone.utc
         # start time == nap_start_max → should be nap (<= not <)
         start = datetime.datetime(2026, 4, 15, 17, 0, tzinfo=utc)
         sleep = object.__new__(Sleep)
         sleep._state = SimpleNamespace(db="default", adding=False, fields_cache={})
         sleep.__dict__.update({"nap": None, "start": start, "end": start})
-        monkeypatch.setattr("core.models.Sleep.settings",
-                            SimpleNamespace(nap_start_min=datetime.time(9, 0),
-                                            nap_start_max=datetime.time(17, 0)))
+        monkeypatch.setattr(
+            "core.models.Sleep.settings",
+            SimpleNamespace(
+                nap_start_min=datetime.time(9, 0), nap_start_max=datetime.time(17, 0)
+            ),
+        )
         monkeypatch.setattr("core.models.timezone.localtime", lambda v: v)
-        monkeypatch.setattr("core.models.timezone_aware_duration",
-                            lambda s, e: datetime.timedelta(0))
+        monkeypatch.setattr(
+            "core.models.timezone_aware_duration", lambda s, e: datetime.timedelta(0)
+        )
         monkeypatch.setattr(djmodels.Model, "save", lambda self, *a, **kw: None)
         Sleep.save(sleep)
         assert sleep.nap is True
@@ -3448,17 +4407,22 @@ class TestCoreModelsModule:
     def test_sleep_save_nap_just_before_min_is_false(self, monkeypatch):
         from core.models import Sleep
         import django.db.models as djmodels
+
         utc = datetime.timezone.utc
         start = datetime.datetime(2026, 4, 15, 8, 59, tzinfo=utc)
         sleep = object.__new__(Sleep)
         sleep._state = SimpleNamespace(db="default", adding=False, fields_cache={})
         sleep.__dict__.update({"nap": None, "start": start, "end": start})
-        monkeypatch.setattr("core.models.Sleep.settings",
-                            SimpleNamespace(nap_start_min=datetime.time(9, 0),
-                                            nap_start_max=datetime.time(17, 0)))
+        monkeypatch.setattr(
+            "core.models.Sleep.settings",
+            SimpleNamespace(
+                nap_start_min=datetime.time(9, 0), nap_start_max=datetime.time(17, 0)
+            ),
+        )
         monkeypatch.setattr("core.models.timezone.localtime", lambda v: v)
-        monkeypatch.setattr("core.models.timezone_aware_duration",
-                            lambda s, e: datetime.timedelta(0))
+        monkeypatch.setattr(
+            "core.models.timezone_aware_duration", lambda s, e: datetime.timedelta(0)
+        )
         monkeypatch.setattr(djmodels.Model, "save", lambda self, *a, **kw: None)
         Sleep.save(sleep)
         assert sleep.nap is False
@@ -3468,6 +4432,7 @@ class TestCoreModelsModule:
     def test_timer_save_empty_string_name_becomes_none(self, monkeypatch):
         from core.models import Timer
         import django.db.models as djmodels
+
         timer = object.__new__(Timer)
         timer._state = SimpleNamespace(db="default", adding=False, fields_cache={})
         timer.__dict__["name"] = ""
@@ -3479,6 +4444,7 @@ class TestCoreModelsModule:
     def test_timer_save_truthy_name_preserved(self, monkeypatch):
         from core.models import Timer
         import django.db.models as djmodels
+
         timer = object.__new__(Timer)
         timer._state = SimpleNamespace(db="default", adding=False, fields_cache={})
         timer.__dict__["name"] = "My Timer"
@@ -3490,12 +4456,14 @@ class TestCoreModelsModule:
     ## Fix#4 - add more for mutation test
     def test_diaper_change_attributes_wet_only(self, monkeypatch):
         from core.models import DiaperChange
+
         obj = object.__new__(DiaperChange)
         obj._state = SimpleNamespace(db="default", adding=False, fields_cache={})
         obj.__dict__.update({"wet": True, "solid": False, "color": ""})
         wet_field = SimpleNamespace(verbose_name="Wet")
-        monkeypatch.setattr(DiaperChange, "_meta",
-                            SimpleNamespace(get_field=lambda name: wet_field))
+        monkeypatch.setattr(
+            DiaperChange, "_meta", SimpleNamespace(get_field=lambda name: wet_field)
+        )
         monkeypatch.setattr(DiaperChange, "get_color_display", lambda self: "")
         result = obj.attributes()
         assert result == ["Wet"]
@@ -3503,12 +4471,14 @@ class TestCoreModelsModule:
     ## Fix#4 - add more for mutation test
     def test_diaper_change_attributes_solid_uses_field_verbose_name(self, monkeypatch):
         from core.models import DiaperChange
+
         obj = object.__new__(DiaperChange)
         obj._state = SimpleNamespace(db="default", adding=False, fields_cache={})
         obj.__dict__.update({"wet": False, "solid": True, "color": ""})
         solid_field = SimpleNamespace(verbose_name="Solid")
-        monkeypatch.setattr(DiaperChange, "_meta",
-                            SimpleNamespace(get_field=lambda name: solid_field))
+        monkeypatch.setattr(
+            DiaperChange, "_meta", SimpleNamespace(get_field=lambda name: solid_field)
+        )
         monkeypatch.setattr(DiaperChange, "get_color_display", lambda self: "")
         result = obj.attributes()
         assert result == ["Solid"]
@@ -3516,14 +4486,19 @@ class TestCoreModelsModule:
     ## Fix#4 - add more for mutation test
     def test_diaper_change_attributes_color_uses_display(self, monkeypatch):
         from core.models import DiaperChange
+
         obj = object.__new__(DiaperChange)
         obj._state = SimpleNamespace(db="default", adding=False, fields_cache={})
         obj.__dict__.update({"wet": False, "solid": False, "color": "yellow"})
-        monkeypatch.setattr(DiaperChange, "_meta",
-                            SimpleNamespace(get_field=lambda name: SimpleNamespace(verbose_name="")))
+        monkeypatch.setattr(
+            DiaperChange,
+            "_meta",
+            SimpleNamespace(get_field=lambda name: SimpleNamespace(verbose_name="")),
+        )
         monkeypatch.setattr(DiaperChange, "get_color_display", lambda self: "Yellow")
         result = obj.attributes()
         assert result == ["Yellow"]
+
 
 class TestCoreTemplateTagsModule:
     """Targets: core/templatetags/duration.py, misc.py, bootstrap.py, datetime.py"""
@@ -3678,12 +4653,14 @@ class TestCoreTemplateTagsModule:
     ## Fix#1
     def test_bool_icon_returns_safe_html(self):
         from django.utils.safestring import SafeData
+
         assert isinstance(bootstrap_tags.bool_icon(True), SafeData)
 
     # --- datetime.py ---
     ## Fix#1
     def test_datetime_short_today_returns_today_label(self, monkeypatch):
         from django.utils import formats as dj_formats
+
         now = datetime.datetime(2026, 4, 15, 14, 30, tzinfo=datetime.timezone.utc)
         monkeypatch.setattr(datetime_tags.timezone, "localtime", lambda d=None: now)
         monkeypatch.setattr(dj_formats, "date_format", lambda d, format: "2:30 PM")
@@ -3693,11 +4670,20 @@ class TestCoreTemplateTagsModule:
     ## Fix#1
     def test_datetime_short_different_year_uses_short_datetime(self, monkeypatch):
         from django.utils import formats as dj_formats
+
         date = datetime.datetime(2024, 3, 10, 9, 0, tzinfo=datetime.timezone.utc)
         now = datetime.datetime(2026, 4, 15, 14, 30, tzinfo=datetime.timezone.utc)
-        monkeypatch.setattr(datetime_tags.timezone, "localtime", lambda d=None: now if d is None else date)
-        monkeypatch.setattr(dj_formats, "date_format", lambda d, format: "03/10/2024 09:00")
-        monkeypatch.setattr(dj_formats, "get_format", lambda fmt: fmt)  # returns name → no SHORT_MONTH_DAY_FORMAT
+        monkeypatch.setattr(
+            datetime_tags.timezone,
+            "localtime",
+            lambda d=None: now if d is None else date,
+        )
+        monkeypatch.setattr(
+            dj_formats, "date_format", lambda d, format: "03/10/2024 09:00"
+        )
+        monkeypatch.setattr(
+            dj_formats, "get_format", lambda fmt: fmt
+        )  # returns name → no SHORT_MONTH_DAY_FORMAT
         result = datetime_tags.datetime_short(date)
         assert "03/10/2024" in result
 
@@ -3717,8 +4703,11 @@ class TestCoreTemplateTagsModule:
         # partial branch 102/missing 103: today=None → uses timezone.localtime().date()
         today = datetime.date(2026, 4, 15)
         value = datetime.date(2026, 4, 14)  # yesterday
-        monkeypatch.setattr(duration_tags.timezone, "localtime",
-                            lambda: SimpleNamespace(date=lambda: today))
+        monkeypatch.setattr(
+            duration_tags.timezone,
+            "localtime",
+            lambda: SimpleNamespace(date=lambda: today),
+        )
         result = duration_tags.dayssince(value)
         assert result == "yesterday"
 
@@ -3727,18 +4716,26 @@ class TestCoreTemplateTagsModule:
     def test_datetime_short_same_year_with_short_month_day_format(self, monkeypatch):
         # elif branch: same year AND SHORT_MONTH_DAY_FORMAT available
         from django.utils import formats as dj_formats
+
         date = datetime.datetime(2026, 3, 10, 9, 0, tzinfo=datetime.timezone.utc)
         now = datetime.datetime(2026, 4, 15, 14, 0, tzinfo=datetime.timezone.utc)
 
         # localtime returns now when called without args, date when called with date
         def fake_localtime(d=None):
             return now if d is None else date
+
         monkeypatch.setattr(datetime_tags.timezone, "localtime", fake_localtime)
-        monkeypatch.setattr(dj_formats, "date_format",
-                            lambda d, format: "Mar 10" if "SHORT_MONTH" in format else "9:00 AM")
+        monkeypatch.setattr(
+            dj_formats,
+            "date_format",
+            lambda d, format: "Mar 10" if "SHORT_MONTH" in format else "9:00 AM",
+        )
         # Return a real format string (not the key itself) to trigger the branch
-        monkeypatch.setattr(dj_formats, "get_format",
-                            lambda fmt: "j M" if fmt == "SHORT_MONTH_DAY_FORMAT" else fmt)
+        monkeypatch.setattr(
+            dj_formats,
+            "get_format",
+            lambda fmt: "j M" if fmt == "SHORT_MONTH_DAY_FORMAT" else fmt,
+        )
 
         result = datetime_tags.datetime_short(date)
         assert "Mar 10" in result
@@ -3748,19 +4745,24 @@ class TestCoreTemplateTagsModule:
     def test_datetime_short_different_year_no_short_format(self, monkeypatch):
         # different year → falls through to SHORT_DATETIME_FORMAT only
         from django.utils import formats as dj_formats
+
         date = datetime.datetime(2024, 3, 10, 9, 0, tzinfo=datetime.timezone.utc)
         now = datetime.datetime(2026, 4, 15, 14, 0, tzinfo=datetime.timezone.utc)
 
         def fake_localtime(d=None):
             return now if d is None else date
+
         monkeypatch.setattr(datetime_tags.timezone, "localtime", fake_localtime)
-        monkeypatch.setattr(dj_formats, "date_format",
-                            lambda d, format: "03/10/2024, 09:00")
-        monkeypatch.setattr(dj_formats, "get_format",
-                            lambda fmt: fmt)  # returns key → branch not taken
+        monkeypatch.setattr(
+            dj_formats, "date_format", lambda d, format: "03/10/2024, 09:00"
+        )
+        monkeypatch.setattr(
+            dj_formats, "get_format", lambda fmt: fmt
+        )  # returns key → branch not taken
 
         result = datetime_tags.datetime_short(date)
         assert "03/10/2024" in result
+
 
 class TestCoreAppsModule:
     """Targets: core/apps.py"""
@@ -3777,18 +4779,20 @@ class TestCoreAppsModule:
             if codename.startswith("view_"):
                 return view_perm
             from django.contrib.auth.models import Permission
+
             raise Permission.DoesNotExist
 
         from django.contrib.auth.models import Permission, Group
+
         monkeypatch.setattr(Permission.objects, "get", fake_get)
-        monkeypatch.setattr(Group.objects, "get",
-                            lambda name: group)
+        monkeypatch.setattr(Group.objects, "get", lambda name: group)
 
         # Patch apps.all_models to have one core model
         class FakeApps:
             all_models = {"core": {"child": None}}
 
         import django.apps
+
         monkeypatch.setattr(django.apps, "apps", FakeApps())
 
         add_read_only_group_permissions(sender=object())
@@ -3811,23 +4815,28 @@ class TestCoreAppsModule:
             all_models = {"core": {"child": None}}
 
         import django.apps
+
         monkeypatch.setattr(django.apps, "apps", FakeApps())
 
         # Should not raise even when group doesn't exist
         add_read_only_group_permissions(sender=object())
 
     ## Fix#1
-    def test_add_read_only_group_permissions_skips_missing_permission(self, monkeypatch):
+    def test_add_read_only_group_permissions_skips_missing_permission(
+        self, monkeypatch
+    ):
         from core.apps import add_read_only_group_permissions
         from django.contrib.auth.models import Permission, Group
 
-        monkeypatch.setattr(Permission.objects, "get",
-                            Mock(side_effect=Permission.DoesNotExist))
+        monkeypatch.setattr(
+            Permission.objects, "get", Mock(side_effect=Permission.DoesNotExist)
+        )
 
         class FakeApps:
             all_models = {"core": {"child": None}}
 
         import django.apps
+
         monkeypatch.setattr(django.apps, "apps", FakeApps())
 
         # No permissions found → group.add never called, should not raise
@@ -3839,8 +4848,11 @@ class TestCoreAppsModule:
         from django.db.models.signals import post_migrate
 
         connected = []
-        monkeypatch.setattr(post_migrate, "connect",
-                            lambda handler, sender: connected.append((handler, sender)))
+        monkeypatch.setattr(
+            post_migrate,
+            "connect",
+            lambda handler, sender: connected.append((handler, sender)),
+        )
 
         config = CoreConfig.__new__(CoreConfig)
         CoreConfig.ready(config)
@@ -3850,7 +4862,9 @@ class TestCoreAppsModule:
         assert all(s is config for h, s in connected)
 
     ## Fix#4 - add more for mutation test
-    def test_add_read_only_group_permissions_uses_view_codename_pattern(self, monkeypatch):
+    def test_add_read_only_group_permissions_uses_view_codename_pattern(
+        self, monkeypatch
+    ):
         # Kills mutant on f"view_{model}" string
         from core.apps import add_read_only_group_permissions
         from django.contrib.auth.models import Permission, Group
@@ -3870,6 +4884,7 @@ class TestCoreAppsModule:
             all_models = {"core": {"child": None, "feeding": None}}
 
         import django.apps
+
         monkeypatch.setattr(django.apps, "apps", FakeApps())
 
         add_read_only_group_permissions(sender=object())
@@ -3889,18 +4904,22 @@ class TestCoreAppsModule:
         monkeypatch.setattr(Permission.objects, "get", lambda codename: perm)
 
         add_calls = []
-        group = SimpleNamespace(permissions=SimpleNamespace(add=lambda *p: add_calls.extend(p)))
+        group = SimpleNamespace(
+            permissions=SimpleNamespace(add=lambda *p: add_calls.extend(p))
+        )
         monkeypatch.setattr(Group.objects, "get", lambda name: group)
 
         class FakeApps:
             all_models = {"core": {"child": None}}  # exactly 1 permission
 
         import django.apps
+
         monkeypatch.setattr(django.apps, "apps", FakeApps())
 
         add_read_only_group_permissions(sender=object())
         # With exactly 1 permission, > 0 is True → add called
         assert perm in add_calls
+
 
 class TestCoreWidgetsModule:
     """Targets: core/widgets.py — TagsEditor, ChildRadioSelect, PillRadioSelect"""
@@ -3916,11 +4935,15 @@ class TestCoreWidgetsModule:
     ## Fix#2
     def test_tags_editor_format_value_converts_tag_list_to_dicts(self):
         widget = TagsEditor()
-        tags = [SimpleNamespace(name="sleep", color="#ff0000"),
-                SimpleNamespace(name="nap", color="#00ff00")]
+        tags = [
+            SimpleNamespace(name="sleep", color="#ff0000"),
+            SimpleNamespace(name="nap", color="#00ff00"),
+        ]
         result = widget.format_value(tags)
-        assert result == [{"name": "sleep", "color": "#ff0000"},
-                          {"name": "nap", "color": "#00ff00"}]
+        assert result == [
+            {"name": "sleep", "color": "#ff0000"},
+            {"name": "nap", "color": "#00ff00"},
+        ]
 
     ## Fix#2
     def test_tags_editor_format_value_passes_string_through(self):
@@ -3963,8 +4986,9 @@ class TestCoreWidgetsModule:
 
         # Mock super().create_option to return a base dict
         base_option = {"name": "child", "value": value, "label": "Ava"}
-        with patch.object(ChildRadioSelect.__bases__[0], "create_option",
-                          return_value=base_option):
+        with patch.object(
+            ChildRadioSelect.__bases__[0], "create_option", return_value=base_option
+        ):
             option = widget.create_option("child", value, "Ava", False, 0)
         assert option["picture"] is picture
 
@@ -3972,8 +4996,9 @@ class TestCoreWidgetsModule:
     def test_child_radio_select_create_option_skips_picture_for_empty_value(self):
         widget = ChildRadioSelect()
         base_option = {"name": "child", "value": "", "label": "---------"}
-        with patch.object(ChildRadioSelect.__bases__[0], "create_option",
-                          return_value=base_option):
+        with patch.object(
+            ChildRadioSelect.__bases__[0], "create_option", return_value=base_option
+        ):
             option = widget.create_option("child", "", "---------", False, 0)
         assert "picture" not in option
 
@@ -4022,8 +5047,9 @@ class TestCoreWidgetsModule:
         child_instance = SimpleNamespace(picture=picture)
         value = SimpleNamespace(instance=child_instance)
         base_option = {"name": "child", "value": value}
-        with patch.object(ChildRadioSelect.__bases__[0], "create_option",
-                          return_value=base_option):
+        with patch.object(
+            ChildRadioSelect.__bases__[0], "create_option", return_value=base_option
+        ):
             option = widget.create_option("child", value, "Ava", False, 0)
         assert option["picture"] is picture
 
@@ -4032,8 +5058,9 @@ class TestCoreWidgetsModule:
         # Kills mutant changing "" comparison
         widget = ChildRadioSelect()
         base_option = {"name": "child", "value": ""}
-        with patch.object(ChildRadioSelect.__bases__[0], "create_option",
-                          return_value=base_option):
+        with patch.object(
+            ChildRadioSelect.__bases__[0], "create_option", return_value=base_option
+        ):
             option = widget.create_option("child", "", "---", False, 0)
         assert "picture" not in option
 
@@ -4043,4 +5070,3 @@ class TestCoreWidgetsModule:
         widget = PillRadioSelect()
         attrs = widget.build_attrs({"class": "btn-check d-none"}, {})
         assert attrs["class"] == "btn-check d-none btn-check d-none"
-
