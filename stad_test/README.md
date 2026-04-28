@@ -51,7 +51,11 @@ pipenv install --dev pytest pytest-django pytest-cov mutmut selenium webdriver-m
 ## 5. Set Django settings
 
 <pre>
+## For running the application
 export DJANGO_SETTINGS_MODULE=babybuddy.settings.development
+
+## For running test
+export DJANGO_SETTINGS_MODULE=babybuddy.settings.test
 </pre>
 
 ---
