@@ -42,10 +42,11 @@ npm install
 ## 4. Install testing tools (for STaD)
 
 <pre>
-pipenv install --dev pytest pytest-django pytest-cov mutmut
+pipenv install --dev pytest pytest-django pytest-cov mutmut selenium webdriver-manager
 </pre>
 
 ---
+
 
 ## 5. Set Django settings
 
@@ -55,7 +56,7 @@ export DJANGO_SETTINGS_MODULE=babybuddy.settings.development
 
 ---
 
-## (Optional) 6. Run application
+## (Optional) 6. Run application 
 
 <pre>
 gulp migrate
@@ -73,24 +74,20 @@ admin / admin
 # 🔁 RUN EVERY TIME (TESTING)
 
 ## Before running
-
 <pre>
-export DJANGO_SETTINGS_MODULE=babybuddy.settings.development
-</pre>
-
-## Run all tests
-
-<pre>
-pipenv run pytest stad_test
+export DJANGO_SETTINGS_MODULE=babybuddy.settings.test
 </pre>
 
 ---
 
-## Run specific test groups
+## Run specific test suite
 
 ### Blackbox + Whitbox tests
 
 <pre>
+# ALL
+pipenv run pytest stad_test
+
 # api
 pipenv run pytest stad_test/api
 
@@ -107,6 +104,9 @@ pipenv run pytest stad_test/dashboard
 ### Blackbox tests
 
 <pre>
+# ALL
+pipenv run pytest stad_test/*/*_blackbox_test.py
+
 # api
 pipenv run pytest stad_test/api/api_blackbox_test.py
 
@@ -123,6 +123,9 @@ pipenv run pytest stad_test/dashboard/dashboard_blackbox_test.py
 ### Whitebox tests
 
 <pre>
+# ALL
+pipenv run pytest stad_test/*/*_whitebox_test.py 
+
 # api
 pipenv run pytest stad_test/api/api_whitebox_test.py
 
@@ -141,6 +144,9 @@ pipenv run pytest stad_test/dashboard/dashboard_whitebox_test.py
 ## Run with coverage
 
 <pre>
+# ALL
+pipenv run pytest stad_test/**/*whitebox_test.py --cov=api --cov=core --cov=babybuddy --cov=dashboard --cov-branch --cov-report=html:stad_test/report/all_cov
+
 # api
 pipenv run pytest stad_test/api/api_whitebox_test.py --cov=api --cov-branch --cov-report=html:stad_test/report/api_cov
 
@@ -152,6 +158,8 @@ pipenv run pytest stad_test/core/core_whitebox_test.py --cov=core --cov-branch -
 
 # dashboard
 pipenv run pytest stad_test/dashboard/dashboard_whitebox_test.py --cov=dashboard --cov-branch --cov-report=html:stad_test/report/dashboard_cov
+
+# Check report in stad_test/report/{folder}/index.html
 </pre>
 
 ---
@@ -174,4 +182,21 @@ cp stad_test/dashboard/setup.cfg .
 # Copy the correct config above then run these
 pipenv run mutmut run
 pipenv run mutmut results
+</pre>
+
+---
+
+## Run GUI testing
+
+Access stad_test/gui/README.md for more information. Generally, the follwing commands work:
+
+<pre>
+# Headless (default) - all 94 tests run in ~11 minutes end-to-end
+pipenv run pytest stad_test/gui
+
+# Watch the browser drive the app (demo mode)
+pipenv run pytest stad_test/gui --headed
+
+# Watch and slow it down so the audience can follow
+pipenv run pytest stad_test/gui --headed --slow-gui
 </pre>
