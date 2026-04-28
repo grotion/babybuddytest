@@ -7,17 +7,24 @@ forms, clicking submit buttons, reading the resulting HTML.
 
 ## What's in here
 
-| File                                 | Tests | Scope                                            |
-| ------------------------------------ | ----- | ------------------------------------------------ |
-| `conftest.py`                        | —     | Driver + live-server + user/child fixtures       |
-| `test_auth_gui.py`                   | 8     | Login, logout, password reset, user settings     |
-| `test_children_gui.py`               | 7     | Add/list/detail child, duplicate-name bug (B-02) |
-| `test_tracking_gui.py`               | 10    | Feeding, sleep, diaper, pumping (incl. B-05)     |
-| `test_permissions_and_errors_gui.py` | 6     | Anonymous bounce, staff-only gating, 404 (B-01)  |
+| File                                 | Tests | xfail | Scope                                                     |
+| ------------------------------------ | ----- | ----- | --------------------------------------------------------- |
+| `conftest.py`                        | —     | —     | Driver + live-server + user/child fixtures                |
+| `test_auth_gui.py`                   | 8     | 0     | Login, logout, password reset, user settings              |
+| `test_children_gui.py`               | 10    | 4     | Add/list/detail child, duplicate-name bug (B-02)          |
+| `test_tracking_gui.py`               | 26    | 18    | Feeding, sleep, diaper, pumping (incl. B-05)              |
+| `test_permissions_and_errors_gui.py` | 10    | 5     | Anonymous bounce, staff-only gating, 404 (B-01)           |
+| `test_updates_gui.py`                | 10    | 1     | Edit-view round-trips for every CRUD resource             |
+| `test_timers_gui.py`                 | 6     | 0     | Timer start / stop / restart flows                        |
+| `test_api_token_gui.py`              | 3     | 0     | User-settings API token reveal & rotation                 |
+| `test_filters_gui.py`                | 7     | 1     | List-page filtering by child / type / method / wet status |
+| `test_mobile_gui.py`                 | 4     | 1     | iPhone-13 viewport: no overflow, hamburger, mobile forms  |
 
-Total: **31 GUI tests**, four of which are marked `xfail` because they
-reproduce live blackbox bugs at the UI layer (B-01, B-02, and two B-05
-variants — feeding end-before-start and pumping negative amount).
+Total: **84 GUI test functions** (≈94 collected after parametrization), 30 of
+which are marked `xfail` to document live bugs at the UI layer — including
+the 404-template syntax error, the duplicate-name slug collision, missing
+`MinValueValidator`s on Weight/Feeding/Pumping amounts, and the navbar
+hamburger toggle race on Bootstrap 5 under headless Chrome.
 
 ## Prerequisites
 
@@ -46,7 +53,7 @@ pipenv install --dev
 ## Running the suite
 
 ```powershell
-# Headless (default) - fastest, ~45s for all 29 tests
+# Headless (default) - all 94 tests run in ~11 minutes end-to-end
 pipenv run pytest stad_test/gui
 
 # Watch the browser drive the app (demo mode)
@@ -57,17 +64,22 @@ pipenv run pytest stad_test/gui --headed --slow-gui
 
 # One file at a time
 pipenv run pytest stad_test/gui/test_auth_gui.py --headed
+
+# Just the new categories (filters / updates / timers / api tokens / mobile)
+pipenv run pytest stad_test/gui/test_filters_gui.py stad_test/gui/test_updates_gui.py stad_test/gui/test_timers_gui.py stad_test/gui/test_api_token_gui.py stad_test/gui/test_mobile_gui.py
 ```
 
 Expected output on current `main`:
 
 ```
-============ 27 passed, 4 xfailed in 45.0s ============
+============ 61 passed, 17 xfailed, 16 xpassed in ~11min ============
 ```
 
-The three `xfailed` entries are the documented bugs — look at the `XFAIL`
-section of the pytest log to see the `reason=` text, which doubles as the
-bug report.
+The 17 `xfailed` entries are documented bugs that still reproduce — look at
+the `XFAIL` section of the pytest log to see the `reason=` text, which
+doubles as the bug report. The 16 `xpassed` entries are tests that
+_used_ to fail and now silently pass; review them to decide whether to
+delete the `xfail` marker.
 
 ## Notes for the presentation
 
@@ -94,7 +106,19 @@ hit submit, and land on a 500 page. Clean, visual, repeatable.
 - **Explicit waits only.** No `time.sleep`-based polling except the opt-in
   `--slow-gui` flag. `WebDriverWait` + `expected_conditions` is used at
   every navigation boundary.
-- **No page-object model.** For 29 tests it adds ceremony without payoff.
-  Helpers like `_select_radio_by_value` cover the 3–4 patterns that repeat.
+- **No page-object model.** For 84 test functions it adds ceremony without
+  payoff. Small helpers like `_select_radio_by_value`, `_seed_feeding`, and
+  the `set_value` / `check_box` / `click_submit` fixtures in `conftest.py`
+  cover the 3–4 form-interaction patterns that actually repeat.
 - **`xfail + found_bug` for reproducing bugs.** Same discipline as the
-  blackbox suite so CI stays green and `-ra` prints the bug descriptions.
+  blackbox suite so CI stays green while still documenting every live bug.
+  Each xfailed test's `reason=` field is a self-contained bug report — read
+  the pytest log's `XFAIL` section after a run to see the full list.
+- **Per-resource update coverage.** `test_updates_gui.py` parametrizes a
+  smoke test across every CRUD resource (feeding, sleep, diaper, pumping,
+  note, temperature, weight, height) so a regression in URLConf wiring or a
+  template include surfaces immediately, not weeks later.
+- **Mobile viewport guard.** `test_mobile_gui.py` resizes to iPhone-13 (390 ×
+  844 CSS px) after login and asserts that the dashboard doesn't overflow,
+  the navbar collapses behind a hamburger, and the child-add form remains
+  submittable — the kind of regression CSS refactors quietly break.
